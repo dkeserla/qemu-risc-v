@@ -547,6 +547,9 @@
 /* Zcmt Extension */
 #define CSR_JVT             0x017
 
+/* HFI Extension */
+#define CSR_HFI_STATUS      0x7C0  // HFI status register
+
 /* mstatus CSR bits */
 #define MSTATUS_UIE         0x00000001
 #define MSTATUS_SIE         0x00000002

@@ -824,6 +824,16 @@ static RISCVException seed(CPURISCVState *env, int csrno)
 #endif
 }
 
+/* HFI Predicate */
+static RISCVException hfi(CPURISCVState *env, int csrno)
+{
+    // TODO: Currently assumes system always has HFI 
+    // if (!riscv_cpu_cfg(env)->ext_hfi) {
+    //     return RISCV_EXCP_ILLEGAL_INST;
+    // }
+    return RISCV_EXCP_NONE;
+}
+
 /* zicfiss CSR_SSP read and write */
 static int read_ssp(CPURISCVState *env, int csrno, target_ulong *val)
 {
@@ -5715,6 +5725,19 @@ static RISCVException write_jvt(CPURISCVState *env, int csrno,
     return RISCV_EXCP_NONE;
 }
 
+/* HFI Read and Write */
+static RISCVException hfi_status_read(CPURISCVState *env, int csrno, target_ulong *ret_value)
+{
+    *ret_value = env->hfi_status;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException hfi_status_write(CPURISCVState *env, int csrno, target_ulong new_value)
+{
+    env->hfi_status = new_value;
+    return RISCV_EXCP_NONE;
+}
+
 /*
  * Control and Status Register function table
  * riscv_csr_operations::predicate() must be provided for an implemented CSR
@@ -6461,4 +6484,9 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
                              .min_priv_ver = PRIV_VERSION_1_12_0 },
 
 #endif /* !CONFIG_USER_ONLY */
+
+    /* HFI CSRs */
+    [CSR_HFI_STATUS]   = { "hfi_status",   hfi,  hfi_status_read, 
+                            hfi_status_write },
+
 };
