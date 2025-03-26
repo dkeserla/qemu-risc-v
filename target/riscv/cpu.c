@@ -1308,6 +1308,25 @@ static void riscv_cpu_realize(DeviceState *dev, Error **errp)
     cpu_reset(cs);
 
     mcc->parent_realize(dev, errp);
+
+    /* Initialize HFI state if extension is enabled */
+    if (cpu->cfg.ext_hfi) {
+        /* Allocate HFI state structure */
+        cpu->env.hfi_state = g_malloc0(sizeof(RISCVHFIState));
+        if (!cpu->env.hfi_state) {
+            error_setg(errp, "Failed to allocate HFI state structure");
+            return;
+        }
+        
+        /* Initialize HFI state with default values */
+        cpu->env.hfi_state->region_start = 0;
+        cpu->env.hfi_state->region_end = 0;
+        cpu->env.hfi_state->exit_handler = 0;
+        cpu->env.hfi_state->fault_status = 0;
+        cpu->env.hfi_state->enabled = false;
+        
+        qemu_log_mask(CPU_LOG_MISC, "HFI extension enabled\n");
+    }
 }
 
 bool riscv_cpu_accelerator_compatible(RISCVCPU *cpu)
@@ -1710,6 +1729,8 @@ const RISCVCPUMultiExtConfig riscv_cpu_extensions[] = {
     MULTI_EXT_CFG_BOOL("zvks", ext_zvks, false),
     MULTI_EXT_CFG_BOOL("zvksc", ext_zvksc, false),
     MULTI_EXT_CFG_BOOL("zvksg", ext_zvksg, false),
+
+    { "hfi", CPU_CFG_OFFSET(ext_hfi), false },
 
     { },
 };
@@ -3274,3 +3295,289 @@ static const TypeInfo riscv_cpu_type_infos[] = {
 };
 
 DEFINE_TYPES(riscv_cpu_type_infos)
+
+static void riscv_cpu_reset(DeviceState *dev)
+{
+    // ... existing code ...
+    
+    /* Reset HFI state if the extension is enabled */
+    if (cpu->cfg.ext_hfi && env->hfi_state) {
+        env->hfi_state->region_start = 0;
+        env->hfi_state->region_end = 0;
+        env->hfi_state->exit_handler = 0;
+        env->hfi_state->fault_status = 0;
+        env->hfi_state->enabled = false;
+    }
+    
+    // ... existing code ...
+}
+
+/* HFI CSR read function */
+static RISCVException read_hfi_csr(CPURISCVState *env, int csrno,
+                                  target_ulong *val)
+{
+    if (!riscv_cpu_cfg(env)->ext_hfi) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    /* HFI CSRs are only accessible in M-mode */
+    if (env->priv != PRV_M) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    /* Ensure HFI state is initialized */
+    if (!env->hfi_state) {
+        *val = 0;
+        return RISCV_EXCP_NONE;
+    }
+
+    switch (csrno) {
+    case CSR_HFI_CONTROL:
+        *val = env->hfi_state->control;
+        break;
+    case CSR_HFI_REGION_START:
+        if (env->hfi_state->current_region >= 0 && 
+            env->hfi_state->current_region < HFI_MAX_REGIONS) {
+            *val = env->hfi_state->regions[env->hfi_state->current_region].base;
+        } else {
+            *val = 0;
+        }
+        break;
+    case CSR_HFI_REGION_END:
+        if (env->hfi_state->current_region >= 0 && 
+            env->hfi_state->current_region < HFI_MAX_REGIONS) {
+            *val = env->hfi_state->regions[env->hfi_state->current_region].bound;
+        } else {
+            *val = 0;
+        }
+        break;
+    case CSR_HFI_EXIT_HANDLER:
+        *val = env->hfi_state->exit_handler;
+        break;
+    case CSR_HFI_FAULT_STATUS:
+        /* 
+         * Fault status layout:
+         * [63:32] - Reserved
+         * [31:24] - Fault cause
+         * [23:0]  - Additional status info (implementation-specific)
+         */
+        *val = ((target_ulong)env->hfi_state->fault_cause << 24) | 
+               (env->hfi_state->fault_status & 0xFFFFFF);
+        break;
+    default:
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    return RISCV_EXCP_NONE;
+}
+
+/* HFI CSR write function */
+static RISCVException write_hfi_csr(CPURISCVState *env, int csrno,
+                                   target_ulong val)
+{
+    if (!riscv_cpu_cfg(env)->ext_hfi) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    /* HFI CSRs are only accessible in M-mode */
+    if (env->priv != PRV_M) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    /* Ensure HFI state is initialized */
+    if (!env->hfi_state) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    switch (csrno) {
+    case CSR_HFI_CONTROL:
+        env->hfi_state->control = val;
+        break;
+    case CSR_HFI_REGION_START:
+        /* Read-only from CSR interface - set via dedicated instructions */
+        break;
+    case CSR_HFI_REGION_END:
+        /* Read-only from CSR interface - set via dedicated instructions */
+        break;
+    case CSR_HFI_EXIT_HANDLER:
+        env->hfi_state->exit_handler = val;
+        break;
+    case CSR_HFI_FAULT_STATUS:
+        /* 
+         * Only the additional status info is writable
+         * Fault cause is set by hardware
+         */
+        env->hfi_state->fault_status = val & 0xFFFFFF;
+        break;
+    default:
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    return RISCV_EXCP_NONE;
+}
+
+/* Combined read/write HFI CSR function */
+static RISCVException rmw_hfi_csr(CPURISCVState *env, int csrno,
+                                 target_ulong *ret_value,
+                                 target_ulong new_value, 
+                                 target_ulong write_mask)
+{
+    target_ulong old_value;
+    RISCVException ret;
+
+    ret = read_hfi_csr(env, csrno, &old_value);
+    if (ret != RISCV_EXCP_NONE) {
+        return ret;
+    }
+
+    if (ret_value) {
+        *ret_value = old_value;
+    }
+
+    if (write_mask) {
+        new_value = (old_value & ~write_mask) | (new_value & write_mask);
+        ret = write_hfi_csr(env, csrno, new_value);
+    }
+
+    return ret;
+}
+
+void init_hfi_csrs(void)
+{
+    /* HFI Control register */
+    riscv_csr_operations ops = {
+        .name = "hfi_control",
+        .read = read_hfi_csr,
+        .write = write_hfi_csr,
+        .op = rmw_hfi_csr
+    };
+    riscv_set_csr_ops(CSR_HFI_CONTROL, &ops);
+
+    /* HFI Region Start register */
+    ops.name = "hfi_region_start";
+    riscv_set_csr_ops(CSR_HFI_REGION_START, &ops);
+
+    /* HFI Region End register */
+    ops.name = "hfi_region_end";
+    riscv_set_csr_ops(CSR_HFI_REGION_END, &ops);
+
+    /* HFI Exit Handler register */
+    ops.name = "hfi_exit_handler";
+    riscv_set_csr_ops(CSR_HFI_EXIT_HANDLER, &ops);
+
+    /* HFI Fault Status register */
+    ops.name = "hfi_fault_status";
+    riscv_set_csr_ops(CSR_HFI_FAULT_STATUS, &ops);
+}
+
+/* Set up an HFI region */
+void riscv_hfi_setup_region(CPURISCVState *env, int region_idx,
+                           target_ulong base, target_ulong size,
+                           uint32_t permissions)
+{
+    if (!env->hfi_state || region_idx < 0 || region_idx >= HFI_MAX_REGIONS) {
+        return;
+    }
+
+    RISCVHFIRegion *region = &env->hfi_state->regions[region_idx];
+    region->base = base;
+    region->bound = base + size;
+    region->permissions = permissions;
+    region->active = true;
+
+    /* Set as current region if no region is currently selected */
+    if (env->hfi_state->current_region < 0) {
+        env->hfi_state->current_region = region_idx;
+    }
+}
+
+/* Select the active HFI region */
+void riscv_hfi_select_region(CPURISCVState *env, int region_idx)
+{
+    if (!env->hfi_state || region_idx < 0 || region_idx >= HFI_MAX_REGIONS ||
+        !env->hfi_state->regions[region_idx].active) {
+        return;
+    }
+
+    env->hfi_state->current_region = region_idx;
+}
+
+/* Deactivate an HFI region */
+void riscv_hfi_deactivate_region(CPURISCVState *env, int region_idx)
+{
+    if (!env->hfi_state || region_idx < 0 || region_idx >= HFI_MAX_REGIONS) {
+        return;
+    }
+
+    env->hfi_state->regions[region_idx].active = false;
+
+    /* If this was the current region, clear the current region */
+    if (env->hfi_state->current_region == region_idx) {
+        env->hfi_state->current_region = -1;
+    }
+}
+
+/* Check if an address is within the current HFI region with proper permissions */
+bool riscv_hfi_check_access(CPURISCVState *env, target_ulong addr,
+                           int access_type, target_ulong *fault_addr)
+{
+    if (!env->hfi_state || !(env->hfi_state->control & HFI_CTRL_ENABLE) ||
+        env->hfi_state->current_region < 0) {
+        return true; /* HFI disabled or no active region, allow access */
+    }
+
+    RISCVHFIRegion *region = &env->hfi_state->regions[env->hfi_state->current_region];
+    
+    /* Check if address is within region bounds */
+    if (addr < region->base || addr >= region->bound) {
+        /* Address outside region - set fault info */
+        env->hfi_state->fault_addr = addr;
+        env->hfi_state->fault_cause = HFI_FAULT_REGION_EXIT;
+        
+        if (fault_addr) {
+            *fault_addr = addr;
+        }
+        
+        /* If trap-on-exit is enabled, return violation */
+        if (env->hfi_state->control & HFI_CTRL_TRAP_EXIT) {
+            return false;
+        }
+        
+        /* Otherwise redirect to exit handler */
+        env->pc = env->hfi_state->exit_handler;
+        return true;
+    }
+
+    /* Check permissions */
+    bool violation = false;
+    switch (access_type) {
+    case MMU_DATA_LOAD:
+        violation = !(region->permissions & HFI_PERM_READ);
+        if (violation) {
+            env->hfi_state->fault_cause = HFI_FAULT_READ_VIOLATION;
+        }
+        break;
+    case MMU_DATA_STORE:
+        violation = !(region->permissions & HFI_PERM_WRITE);
+        if (violation) {
+            env->hfi_state->fault_cause = HFI_FAULT_WRITE_VIOLATION;
+        }
+        break;
+    case MMU_INST_FETCH:
+        violation = !(region->permissions & HFI_PERM_EXECUTE);
+        if (violation) {
+            env->hfi_state->fault_cause = HFI_FAULT_EXEC_VIOLATION;
+        }
+        break;
+    }
+
+    if (violation) {
+        env->hfi_state->fault_addr = addr;
+        if (fault_addr) {
+            *fault_addr = addr;
+        }
+        return false;
+    }
+
+    return true; /* Access allowed */
+}

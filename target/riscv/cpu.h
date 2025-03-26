@@ -129,6 +129,47 @@ typedef enum {
     EXT_STATUS_DIRTY,
 } RISCVExtStatus;
 
+/* Maximum number of supported HFI regions */
+#define HFI_MAX_REGIONS 8
+
+/* HFI region permissions */
+#define HFI_PERM_READ     (1 << 0)
+#define HFI_PERM_WRITE    (1 << 1)
+#define HFI_PERM_EXECUTE  (1 << 2)
+
+/* HFI region definition */
+typedef struct {
+    target_ulong base;         /* Region base address */
+    target_ulong bound;        /* Region boundary (base + size) */
+    uint32_t permissions;      /* Region access permissions */
+    bool active;               /* Whether this region is currently active */
+} RISCVHFIRegion;
+
+/* HFI fault cause codes */
+typedef enum {
+    HFI_FAULT_NONE = 0,
+    HFI_FAULT_READ_VIOLATION = 1,
+    HFI_FAULT_WRITE_VIOLATION = 2,
+    HFI_FAULT_EXEC_VIOLATION = 3,
+    HFI_FAULT_REGION_EXIT = 4,
+    HFI_FAULT_ILLEGAL_INSTRUCTION = 5
+} RISCVHFIFaultCause;
+
+/* Enhanced HFI state structure */
+typedef struct {
+    target_ulong control;      /* Control register */
+    target_ulong exit_handler; /* Address of exit handler */
+    target_ulong fault_status; /* Fault status register */
+    target_ulong fault_addr;   /* Address that caused the fault */
+    RISCVHFIFaultCause fault_cause; /* Cause of the fault */
+    int current_region;        /* Index of currently active region, -1 if none */
+    RISCVHFIRegion regions[HFI_MAX_REGIONS]; /* HFI regions */
+} RISCVHFIState;
+
+/* HFI Control register bit definitions */
+#define HFI_CTRL_ENABLE    (1 << 0)  /* Enable HFI */
+#define HFI_CTRL_TRAP_EXIT (1 << 1)  /* Trap on region exit */
+
 /* Enum holds PMM field values for Zjpm v1.0 extension */
 typedef enum {
     PMM_FIELD_DISABLED = 0,
@@ -473,6 +514,9 @@ struct CPUArchState {
     uint64_t hstateen[SMSTATEEN_MAX_COUNT];
     uint64_t sstateen[SMSTATEEN_MAX_COUNT];
     uint64_t henvcfg;
+
+    /* Hardware-assisted Fault Isolation state */
+    RISCVHFIState *hfi_state;
 #endif
 
     /* Fields from here on are preserved across CPU reset. */
@@ -932,4 +976,22 @@ const char *satp_mode_str(uint8_t satp_mode, bool is_32_bit);
 void th_register_custom_csrs(RISCVCPU *cpu);
 
 const char *priv_spec_to_str(int priv_version);
+
+/* HFI CSR addresses - choose unused addresses in the custom range */
+#define CSR_HFI_CONTROL     0x7C0
+#define CSR_HFI_REGION_START 0x7C1
+#define CSR_HFI_REGION_END   0x7C2
+#define CSR_HFI_EXIT_HANDLER 0x7C3
+#define CSR_HFI_FAULT_STATUS 0x7C4
+
+/* HFI function declarations */
+void riscv_hfi_setup_region(CPURISCVState *env, int region_idx,
+                           target_ulong base, target_ulong size,
+                           uint32_t permissions);
+void riscv_hfi_select_region(CPURISCVState *env, int region_idx);
+void riscv_hfi_deactivate_region(CPURISCVState *env, int region_idx);
+bool riscv_hfi_check_access(CPURISCVState *env, target_ulong addr,
+                           int access_type, target_ulong *fault_addr);
+void init_hfi_csrs(void);
+
 #endif /* RISCV_CPU_H */

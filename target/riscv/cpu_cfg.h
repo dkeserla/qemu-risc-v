@@ -199,6 +199,8 @@ struct RISCVCPUConfig {
 #ifndef CONFIG_USER_ONLY
     RISCVSATPMap satp_mode;
 #endif
+
+    bool ext_hfi;               /* Hardware Fault Isolation extension */
 };
 
 typedef struct RISCVCPUConfig RISCVCPUConfig;
@@ -238,5 +240,8 @@ MATERIALISE_EXT_PREDICATE(xtheadmemidx)
 MATERIALISE_EXT_PREDICATE(xtheadmempair)
 MATERIALISE_EXT_PREDICATE(xtheadsync)
 MATERIALISE_EXT_PREDICATE(XVentanaCondOps)
+
+/* Extension definitions */
+#define CPU_CFG_OFFSET(_prop) offsetof(struct RISCVCPUConfig, _prop)
 
 #endif
