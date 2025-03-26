@@ -22,7 +22,8 @@ riscv_ss.add(files(
   'm128_helper.c',
   'crypto_helper.c',
   'zce_helper.c',
-  'vcrypto_helper.c'
+  'vcrypto_helper.c',
+  'hfi_helper.c', 
 ))
 
 riscv_system_ss = ss.source_set()
@@ -35,7 +36,6 @@ riscv_system_ss.add(files(
   'pmu.c',
   'th_csr.c',
   'time_helper.c',
-  'hfi_helper.c', 
   'riscv-qmp-cmds.c',
 ))
 

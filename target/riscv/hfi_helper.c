@@ -1,5 +1,4 @@
 #include "hfi_helper.h"
-#include "qemu/log.h"
 
 void helper_hfi_exit(RISCVCPU *cpu, uint64_t exit_handler)
 {
