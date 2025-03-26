@@ -4,12 +4,12 @@
 static bool trans_hfi_enter(DisasContext *ctx, arg_hfi_enter *arg)
 {
     uint64_t exit_handler = 0xabcdabcdabcdabcdULL;  // constant for now (derive from arg)
-    gen_helper_hfi_enter(tcg_constant_tl(exit_handler));
+    gen_helper_hfi_enter(tcg_env, tcg_constant_tl(exit_handler));
     return true;
 }
 
 static bool trans_hfi_exit(DisasContext *ctx, arg_hfi_exit *arg)
 {
-    gen_helper_hfi_exit();
+    gen_helper_hfi_exit(tcg_env);
     return true;
 }
