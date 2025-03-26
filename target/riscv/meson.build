@@ -35,6 +35,7 @@ riscv_system_ss.add(files(
   'pmu.c',
   'th_csr.c',
   'time_helper.c',
+  'hfi_helper.c', 
   'riscv-qmp-cmds.c',
 ))
 
