@@ -500,6 +500,11 @@ struct CPUArchState {
     target_ulong rnmip;
     uint64_t rnmi_irqvec;
     uint64_t rnmi_excpvec;
+
+    /* HFI Registers */ 
+    uint64_t hfi_status;   // CSR
+    uint64_t hfi_exit_pc;  // internal Reg
+
 };
 
 /*
