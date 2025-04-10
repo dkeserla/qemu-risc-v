@@ -17,5 +17,4 @@ void helper_hfi_exit(CPURISCVState *env)
     env->hfi_status = 0;
     env->hfi_exit_pc = 0;
     qemu_log_mask(LOG_UNIMP, "HFI: Exited sandbox mode\n");
-    exit(0);
 }
