@@ -1230,6 +1230,9 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
 {
     ctx->virt_inst_excp = false;
     ctx->cur_insn_len = insn_len(opcode);
+
+    // check hfi code here
+
     /* Check for compressed insn */
     if (ctx->cur_insn_len == 2) {
         ctx->opcode = opcode;

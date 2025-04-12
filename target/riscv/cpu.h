@@ -202,6 +202,24 @@ typedef struct PMUFixedCtrState {
         uint64_t counter_virt_prev[2];
 } PMUFixedCtrState;
 
+// HFI Structs 
+// TODO: could wrap with ifdef
+#define HFI_NUM_DATA_REGIONS 4 // double duty for implicit and explicit
+#define HFI_NUM_CODE_REGIONS 2
+
+typedef struct HFIImplicitDataRegion {
+    uint64_t prefix;     // base prefix
+    uint64_t mask;       // lsb_mask 
+    bool perm_read;      // permission bit read
+    bool perm_write;     // permission bit write
+} HFIImplicitDataRegion;
+
+typedef struct HFIImplicitCodeRegion {
+    uint64_t prefix;     // base prefix
+    uint64_t mask;       // lsb_mask 
+    bool perm_exec;      // permission bit execute
+} HFIImplicitCodeRegion;
+
 struct CPUArchState {
     target_ulong gpr[32];
     target_ulong gprh[32]; /* 64 top bits of the 128-bit registers */
@@ -501,10 +519,18 @@ struct CPUArchState {
     uint64_t rnmi_irqvec;
     uint64_t rnmi_excpvec;
 
+
+    // TODO : Wrap in struct if time permits
+
     /* HFI Registers */ 
     uint64_t hfi_status;   // CSR
     uint64_t hfi_exit_pc;  // internal Reg
 
+    // TODO: Change (for now assume only native sandboxing)
+
+    HFIImplicitDataRegion implicit_data_regions[HFI_NUM_DATA_REGIONS];
+    HFIImplicitCodeRegion implicit_code_regions[HFI_NUM_CODE_REGIONS];
+    
 };
 
 /*
