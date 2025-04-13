@@ -207,6 +207,17 @@ typedef struct PMUFixedCtrState {
 #define HFI_NUM_DATA_REGIONS 4 // double duty for implicit and explicit
 #define HFI_NUM_CODE_REGIONS 2
 
+/* Permission bit positions in the permission_t byte */
+#define HFI_R1_ENABLED_BIT   7
+#define HFI_R1_READ_BIT      6
+#define HFI_R1_WRITE_BIT     5
+#define HFI_R1_IS_LARGE_BIT  4
+#define HFI_R2_ENABLED_BIT   3
+#define HFI_R2_READ_BIT      2
+#define HFI_R2_WRITE_BIT     1
+#define HFI_R3_ENABLED_BIT   0
+#define HFI_R3_EXEC_BIT      0
+
 typedef struct HFIImplicitDataRegion {
     uint64_t prefix;     // base prefix
     uint64_t mask;       // lsb_mask 
