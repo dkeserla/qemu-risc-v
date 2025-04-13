@@ -425,9 +425,7 @@ static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_
     }
 
     // trap: no region matched
-    gen_helper_raise_exception(tcg_env, tcg_constant_i32(RISCV_EXCP_LOAD_ACCESS_FAULT));
-    tcg_ctx->emit_before_op = NULL;
-    ctx.base.is_jmp = DISAS_NORETURN;
+    generate_exception(ctx, RISCV_EXCP_LOAD_ACCESS_FAULT);
 
     gen_set_label(pass);
     gen_set_label(skip);

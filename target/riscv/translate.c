@@ -1226,27 +1226,59 @@ const RISCVDecoder decoder_table[] = {
 
 const size_t decoder_table_size = ARRAY_SIZE(decoder_table);
 
-static void hfi_check_code_region(CPURISCVState *env, DisasContext *ctx) {
-    target_ulong pc = ctx->base.pc_next;
-    int len = ctx->cur_insn_len;
-    bool ok = false;
+static void gen_hfi_check_current_pc(DisasContext *ctx) {
+    TCGv hfi_status = tcg_temp_new();
+    TCGLabel *skip = gen_new_label();
+    TCGLabel *pass = gen_new_label();
+
+    // if (hfi_status == 0) goto skip;
+    tcg_gen_ld8u_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
+    tcg_gen_brcondi_tl(TCG_COND_EQ, hfi_status, 0, skip);
+
+    // Instruction PC range
+    TCGv pc = tcg_constant_tl(ctx->base.pc_next);
+    TCGv pc_end = tcg_constant_tl(ctx->base.pc_next + ctx->cur_insn_len - 1);
 
     for (int i = 0; i < HFI_NUM_CODE_REGIONS; i++) {
-        target_ulong prefix = env->implicit_code_regions[i].prefix;
-        target_ulong mask   = env->implicit_code_regions[i].mask;
+        TCGv prefix = tcg_temp_new();
+        TCGv mask = tcg_temp_new();
 
-        if (((pc & mask) == prefix) &&
-            (((pc + len - 1) & mask) == prefix)) {
-            ok = true;
-            break;
-        }
+        tcg_gen_ld_tl(prefix, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].prefix));
+        tcg_gen_ld_tl(mask, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].mask));
+
+        // Compute masked pc and pc_end
+        TCGv pc_masked = tcg_temp_new();
+        TCGv end_masked = tcg_temp_new();
+
+        tcg_gen_and_tl(pc_masked, pc, mask);
+        tcg_gen_and_tl(end_masked, pc_end, mask);
+
+        // If pc_masked != prefix → next
+        TCGLabel *next = gen_new_label();
+        tcg_gen_brcond_tl(TCG_COND_NE, pc_masked, prefix, next);
+
+        // If end_masked == prefix → pass
+        tcg_gen_brcond_tl(TCG_COND_EQ, end_masked, prefix, pass);
+
+        gen_set_label(next);
+
+        // Clean up temps for this region
+        tcg_temp_free(pc_masked);
+        tcg_temp_free(end_masked);
+        tcg_temp_free(prefix);
+        tcg_temp_free(mask);
     }
 
-    if (!ok) {
-        gen_helper_raise_exception(tcg_env,
-            tcg_constant_i32(RISCV_EXCP_INST_ACCESS_FAULT));
-        ctx->base.is_jmp = DISAS_NORETURN;
-    }
+    // If no region matched → trap
+    generate_exception(ctx, RISCV_EXCP_INST_ACCESS_FAULT); // DISAS_NORETURN inside here  // flags that this path ends TB execution
+
+    // If passed → continue translating
+    gen_set_label(pass);
+    gen_set_label(skip);  // Not sandboxed → skip check
+
+    tcg_temp_free(pc);
+    tcg_temp_free(pc_end);
+    tcg_temp_free(hfi_status);
 }
 
 
@@ -1257,12 +1289,7 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
 
     // check hfi code here
 
-    if (env->hfi_status) {
-        hfi_check_code_region(env, ctx);
-        if (ctx->base.is_jmp == DISAS_NORETURN) {
-            return;
-        }
-    }
+    gen_hfi_check_current_pc(ctx); // can generate if hfi_status == 1 since sandboxed code always sandboxed
 
     /* Check for compressed insn */
     if (ctx->cur_insn_len == 2) {
