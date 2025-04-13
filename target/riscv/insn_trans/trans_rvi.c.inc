@@ -360,10 +360,60 @@ static bool trans_bgeu(DisasContext *ctx, arg_bgeu *a)
     return gen_branch(ctx, a, TCG_COND_GEU);
 }
 
+// access type 0 is read, access type 1 is write
+static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_type){
+    TCGLabel *skip = gen_new_label();
+    TCGLabel *pass = gen_new_label();
+    TCGv tmp = tcg_temp_new();
+    TCGv hfi_status = tcg_temp_new();
+
+    // if (!env->hfi_status) goto skip
+    tcg_gen_ld8u_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
+    tcg_gen_brcondi_tl(TCG_COND_EQ, hfi_status, 0, skip);
+
+    for (int i = 0; i < HFI_NUM_DATA_REGIONS; i++) {
+        TCGLabel *next = gen_new_label();
+
+        TCGv prefix = tcg_temp_new();
+        TCGv mask = tcg_temp_new();
+        TCGv perm = tcg_temp_new();
+
+        tcg_gen_ld_tl(prefix, tcg_env, offsetof(CPURISCVState, implicit_data_regions[i].prefix));
+        tcg_gen_ld_tl(mask, tcg_env, offsetof(CPURISCVState, implicit_data_regions[i].mask));
+
+        // permission: perm_read at offset +0, perm_write at offset +1
+        size_t perm_off = offsetof(CPURISCVState, implicit_data_regions[i].perm_read) +
+                          (access_type ? 1 : 0);
+        tcg_gen_ld8u_tl(perm, tcg_env, perm_off);
+        tcg_gen_brcondi_tl(TCG_COND_EQ, perm, 0, next);  // no permission → skip
+
+        tcg_gen_and_tl(tmp, addr, mask);
+        tcg_gen_brcond_tl(TCG_COND_EQ, tmp, prefix, pass);
+
+        gen_set_label(next);
+        tcg_temp_free(prefix);
+        tcg_temp_free(mask);
+        tcg_temp_free(perm);
+    }
+
+    // trap: no region matched
+    gen_helper_raise_exception(tcg_env, tcg_constant_i32(RISCV_EXCP_LOAD_ACCESS_FAULT));
+    tcg_ctx->emit_before_op = NULL;
+    ctx.base.is_jmp = DISAS_NORETURN;
+
+    gen_set_label(pass);
+    gen_set_label(skip);
+    tcg_temp_free(hfi_status);
+    tcg_temp_free(tmp);
+}
+
+
 static bool gen_load_tl(DisasContext *ctx, arg_lb *a, MemOp memop)
 {
     TCGv dest = dest_gpr(ctx, a->rd);
     TCGv addr = get_address(ctx, a->rs1, a->imm);
+
+    gen_hfi_check_data_address(ctx, addr, 0); // check read access
 
     tcg_gen_qemu_ld_tl(dest, addr, ctx->mem_idx, memop);
     gen_set_gpr(ctx, a->rd, dest);
@@ -472,6 +522,8 @@ static bool gen_store_tl(DisasContext *ctx, arg_sb *a, MemOp memop)
 {
     TCGv addr = get_address(ctx, a->rs1, a->imm);
     TCGv data = get_gpr(ctx, a->rs2, EXT_NONE);
+
+    gen_hfi_check_data_address(ctx, addr, 1); // check write access
 
     if (ctx->ztso) {
         tcg_gen_mb(TCG_MO_ALL | TCG_BAR_STRL);
