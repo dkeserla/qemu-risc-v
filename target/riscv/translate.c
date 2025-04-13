@@ -1226,12 +1226,43 @@ const RISCVDecoder decoder_table[] = {
 
 const size_t decoder_table_size = ARRAY_SIZE(decoder_table);
 
+static void hfi_check_code_region(CPURISCVState *env, DisasContext *ctx) {
+    target_ulong pc = ctx->base.pc_next;
+    int len = ctx->cur_insn_len;
+    bool ok = false;
+
+    for (int i = 0; i < HFI_NUM_CODE_REGIONS; i++) {
+        target_ulong prefix = env->implicit_code_regions[i].prefix;
+        target_ulong mask   = env->implicit_code_regions[i].mask;
+
+        if (((pc & mask) == prefix) &&
+            (((pc + len - 1) & mask) == prefix)) {
+            ok = true;
+            break;
+        }
+    }
+
+    if (!ok) {
+        gen_helper_raise_exception(tcg_env,
+            tcg_constant_i32(RISCV_EXCP_INST_ACCESS_FAULT));
+        ctx->base.is_jmp = DISAS_NORETURN;
+    }
+}
+
+
 static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
 {
     ctx->virt_inst_excp = false;
     ctx->cur_insn_len = insn_len(opcode);
 
     // check hfi code here
+
+    if (env->hfi_status) {
+        hfi_check_code_region(env, ctx);
+        if (ctx->base.is_jmp == DISAS_NORETURN) {
+            return;
+        }
+    }
 
     /* Check for compressed insn */
     if (ctx->cur_insn_len == 2) {

@@ -361,6 +361,34 @@ static bool trans_bgeu(DisasContext *ctx, arg_bgeu *a)
 }
 
 // access type 0 is read, access type 1 is write
+
+// rewrite with optimizations to ctx-> hfi_status if values updated on 
+// tb_flush
+
+/*
+if (ctx->hfi_status) {
+    target_ulong prefix = env->hfi.data_regions[i].prefix;
+    target_ulong mask   = env->hfi.data_regions[i].mask;
+    bool perm = (access_type == HFI_ACCESS_WRITE)
+                ? env->hfi.data_regions[i].perm_write
+                : env->hfi.data_regions[i].perm_read;
+    if (perm) {
+        TCGLabel *pass = gen_new_label();
+        TCGv tmp = tcg_temp_new();
+        TCGv const_prefix = tcg_constant_tl(prefix);
+        TCGv const_mask   = tcg_constant_tl(mask);
+
+        tcg_gen_and_tl(tmp, addr, const_mask);
+        tcg_gen_brcond_tl(TCG_COND_EQ, tmp, const_prefix, pass);
+
+        // ... fall through to next region
+
+        gen_set_label(pass);
+        tcg_temp_free(tmp);
+    }
+}      
+*/
+
 static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_type){
     TCGLabel *skip = gen_new_label();
     TCGLabel *pass = gen_new_label();
