@@ -22,78 +22,94 @@ void helper_hfi_exit(CPURISCVState *env)
 void helper_hfi_set_region_size(CPURISCVState *env, uint32_t region_number, 
                                uint64_t base, uint64_t mask_or_bound)
 {
-    if (region_number >= HFI_NUM_DATA_REGIONS) {
-        qemu_log_mask(LOG_GUEST_ERROR, "HFI: Invalid region number %d\n", region_number);
-        return;
-    }
-
-    /* For explicit data regions */
-    if (region_number == 0) {
-        env->implicit_data_regions[0].prefix = base;
-        env->implicit_data_regions[0].mask = mask_or_bound;
-        qemu_log_mask(LOG_UNIMP, "HFI: Set region %d size: base=0x%016" PRIx64 
-                     ", mask=0x%016" PRIx64 "\n", 
-                     region_number, base, mask_or_bound);
-    } else if (region_number == 1) {
+    /* Check for explicit data regions: 0 <= region_number < HFI_NUM_DATA_REGIONS */
+    if (region_number < HFI_NUM_DATA_REGIONS) {
+        /* 
+         * TODO: Explicit data regions are not yet implemented.
+         */
+        qemu_log_mask(LOG_UNIMP, "HFI: Explicit data region %d not yet implemented\n", 
+                     region_number);
+    } 
+    /* Check for implicit data regions: HFI_NUM_DATA_REGIONS <= region_number < 2*HFI_NUM_DATA_REGIONS */
+    else if (region_number < 2 * HFI_NUM_DATA_REGIONS) {
+        /* Calculate index into implicit_data_regions array */
+        uint32_t idx = region_number - HFI_NUM_DATA_REGIONS;
+        
         /* For implicit data region */
-        env->implicit_data_regions[1].prefix = base;
-        env->implicit_data_regions[1].mask = mask_or_bound;
-        qemu_log_mask(LOG_UNIMP, "HFI: Set implicit data region size: base=0x%016" PRIx64 
+        env->implicit_data_regions[idx].prefix = base;
+        env->implicit_data_regions[idx].mask = mask_or_bound;
+        qemu_log_mask(LOG_UNIMP, "HFI: Set implicit data region %d size: base=0x%016" PRIx64 
                      ", mask=0x%016" PRIx64 "\n", 
-                     base, mask_or_bound);
-    } else if (region_number == 2) {
+                     idx, base, mask_or_bound);
+    } 
+    /* Check for implicit code regions: 2*HFI_NUM_DATA_REGIONS <= region_number < 2*HFI_NUM_DATA_REGIONS+HFI_NUM_CODE_REGIONS */
+    else if (region_number < 2 * HFI_NUM_DATA_REGIONS + HFI_NUM_CODE_REGIONS) {
+        /* Calculate index into implicit_code_regions array */
+        uint32_t idx = region_number - 2 * HFI_NUM_DATA_REGIONS;
+        
         /* For implicit code region */
-        env->implicit_code_regions[0].prefix = base;
-        env->implicit_code_regions[0].mask = mask_or_bound;
-        qemu_log_mask(LOG_UNIMP, "HFI: Set implicit code region size: base=0x%016" PRIx64 
+        env->implicit_code_regions[idx].prefix = base;
+        env->implicit_code_regions[idx].mask = mask_or_bound;
+        qemu_log_mask(LOG_UNIMP, "HFI: Set implicit code region %d size: base=0x%016" PRIx64 
                      ", mask=0x%016" PRIx64 "\n", 
-                     base, mask_or_bound);
+                     idx, base, mask_or_bound);
+    } else {
+        qemu_log_mask(LOG_GUEST_ERROR, "HFI: Invalid region number %d\n", region_number);
     }
 }
 
-void helper_hfi_set_region_permissions(CPURISCVState *env, uint32_t permission_set, 
+void helper_hfi_set_region_permissions(CPURISCVState *env, uint32_t region_number, 
                                       uint8_t permission)
 {
-    if (permission_set >= HFI_NUM_DATA_REGIONS) {
-        qemu_log_mask(LOG_GUEST_ERROR, "HFI: Invalid permission set %d\n", permission_set);
-        return;
-    }
-
-    /* Extract permission bits for the explicit data region (region 1) */
-    bool r1_enabled = (permission >> HFI_R1_ENABLED_BIT) & 0x1;
-    bool r1_read = (permission >> HFI_R1_READ_BIT) & 0x1;
-    bool r1_write = (permission >> HFI_R1_WRITE_BIT) & 0x1;
-    bool r1_is_large = (permission >> HFI_R1_IS_LARGE_BIT) & 0x1;
-
-    /* Extract permission bits for the implicit data region (region 2) */
-    bool r2_enabled = (permission >> HFI_R2_ENABLED_BIT) & 0x1;
-    bool r2_read = (permission >> HFI_R2_READ_BIT) & 0x1;
-    bool r2_write = (permission >> HFI_R2_WRITE_BIT) & 0x1;
-
-    /* Extract permission bits for the implicit code region (region 3) */
-    bool r3_enabled = (permission >> HFI_R3_ENABLED_BIT) & 0x1;
-    bool r3_exec = (permission >> HFI_R3_EXEC_BIT) & 0x1;
-
-    /* Set permissions for regions based on permission_set */
-    if (permission_set == 0) {
-        /* Configure explicit data region */
-        env->implicit_data_regions[0].perm_read = r1_read;
-        env->implicit_data_regions[0].perm_write = r1_write;
+    /* Check for explicit data regions: 0 <= region_number < HFI_NUM_DATA_REGIONS */
+    if (region_number < HFI_NUM_DATA_REGIONS) {
+        /* Extract permission bits for explicit data regions (R1) */
+        bool enabled = (permission >> HFI_R1_ENABLED_BIT) & 0x1;
+        bool read = (permission >> HFI_R1_READ_BIT) & 0x1;
+        bool write = (permission >> HFI_R1_WRITE_BIT) & 0x1;
+        bool is_large = (permission >> HFI_R1_IS_LARGE_BIT) & 0x1;
+        
+        /* 
+         * TODO: Explicit data regions are not yet implemented.
+         */
+        qemu_log_mask(LOG_UNIMP, "HFI: Explicit data region %d permissions not yet implemented\n"
+                     "[en:%d, r:%d, w:%d, large:%d]\n",
+                     region_number, enabled, read, write, is_large);
+    } 
+    /* Check for implicit data regions: HFI_NUM_DATA_REGIONS <= region_number < 2*HFI_NUM_DATA_REGIONS */
+    else if (region_number < 2 * HFI_NUM_DATA_REGIONS) {
+        /* Extract permission bits for implicit data regions (R2) */
+        bool enabled = (permission >> HFI_R2_ENABLED_BIT) & 0x1;
+        bool read = (permission >> HFI_R2_READ_BIT) & 0x1;
+        bool write = (permission >> HFI_R2_WRITE_BIT) & 0x1;
+        
+        /* Calculate index into implicit_data_regions array */
+        uint32_t idx = region_number - HFI_NUM_DATA_REGIONS;
         
         /* Configure implicit data region */
-        env->implicit_data_regions[1].perm_read = r2_read;
-        env->implicit_data_regions[1].perm_write = r2_write;
+        env->implicit_data_regions[idx].perm_read = read;
+        env->implicit_data_regions[idx].perm_write = write;
+        env->implicit_data_regions[idx].enabled = enabled;
+        qemu_log_mask(LOG_UNIMP, "HFI: Set permissions for implicit data region %d: "
+                     "en:%d, r:%d, w:%d\n",
+                     idx, enabled, read, write);
+    } 
+    /* Check for implicit code regions: 2*HFI_NUM_DATA_REGIONS <= region_number < 2*HFI_NUM_DATA_REGIONS+HFI_NUM_CODE_REGIONS */
+    else if (region_number < 2 * HFI_NUM_DATA_REGIONS + HFI_NUM_CODE_REGIONS) {
+        /* Extract permission bits for implicit code regions (R3) */
+        bool enabled = (permission >> HFI_R3_ENABLED_BIT) & 0x1;
+        bool exec = (permission >> HFI_R3_EXEC_BIT) & 0x1;
+        
+        /* Calculate index into implicit_code_regions array */
+        uint32_t idx = region_number - 2 * HFI_NUM_DATA_REGIONS;
         
         /* Configure implicit code region */
-        env->implicit_code_regions[0].perm_exec = r3_exec;
-        
-        qemu_log_mask(LOG_UNIMP, "HFI: Set permissions for set %d: "
-                     "R1[en:%d,r:%d,w:%d,large:%d] "
-                     "R2[en:%d,r:%d,w:%d] "
-                     "R3[en:%d,x:%d]\n",
-                     permission_set,
-                     r1_enabled, r1_read, r1_write, r1_is_large,
-                     r2_enabled, r2_read, r2_write,
-                     r3_enabled, r3_exec);
+        env->implicit_code_regions[idx].perm_exec = exec;
+        env->implicit_code_regions[idx].enabled = enabled;
+        qemu_log_mask(LOG_UNIMP, "HFI: Set permissions for implicit code region %d: "
+                     "en:%d, x:%d\n",
+                     idx, enabled, exec);
+    } else {
+        qemu_log_mask(LOG_GUEST_ERROR, "HFI: Invalid region number %d\n", region_number);
     }
 }

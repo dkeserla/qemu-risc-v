@@ -32,7 +32,7 @@ static bool trans_hfi_set_region_size(DisasContext *ctx, arg_hfi_set_region_size
 
 static bool trans_hfi_set_region_permissions(DisasContext *ctx, arg_hfi_set_region_permissions *arg)
 {
-    TCGv_i32 permission_set = tcg_const_i32(arg->permission_set);
+    TCGv_i32 region_number = tcg_const_i32(arg->region_number);
     TCGv_i64 permission_64 = get_gpr(ctx, arg->rs1, EXT_NONE);
     TCGv_i32 permission = tcg_temp_new_i32();
     
@@ -40,9 +40,9 @@ static bool trans_hfi_set_region_permissions(DisasContext *ctx, arg_hfi_set_regi
     tcg_gen_extrl_i64_i32(permission, permission_64);
     tcg_gen_andi_i32(permission, permission, 0xFF);
     
-    gen_helper_hfi_set_region_permissions(tcg_env, permission_set, permission);
+    gen_helper_hfi_set_region_permissions(tcg_env, region_number, permission);
     
-    tcg_temp_free_i32(permission_set);
+    tcg_temp_free_i32(region_number);
     tcg_temp_free_i32(permission);
     return true;
 }
