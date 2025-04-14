@@ -1240,8 +1240,14 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
     TCGv pc_end = tcg_constant_tl(ctx->base.pc_next + ctx->cur_insn_len - 1);
 
     for (int i = 0; i < HFI_NUM_CODE_REGIONS; i++) {
+        TCGLabel *next = gen_new_label();
+
+        TCGv enabled = tcg_temp_new();
         TCGv prefix = tcg_temp_new();
         TCGv mask = tcg_temp_new();
+
+        tcg_gen_ld_tl(enabled, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].enabled));
+        tcg_gen_brcondi_tl(TCG_COND_EQ, enabled, 0, next);
 
         tcg_gen_ld_tl(prefix, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].prefix));
         tcg_gen_ld_tl(mask, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].mask));
@@ -1254,7 +1260,6 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
         tcg_gen_and_tl(end_masked, pc_end, mask);
 
         // If pc_masked != prefix → next
-        TCGLabel *next = gen_new_label();
         tcg_gen_brcond_tl(TCG_COND_NE, pc_masked, prefix, next);
 
         // If end_masked == prefix → pass
@@ -1265,6 +1270,7 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
         // Clean up temps for this region
         tcg_temp_free(pc_masked);
         tcg_temp_free(end_masked);
+        tcg_temp_free(enabled);
         tcg_temp_free(prefix);
         tcg_temp_free(mask);
     }

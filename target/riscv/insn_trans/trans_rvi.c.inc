@@ -402,9 +402,14 @@ static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_
     for (int i = 0; i < HFI_NUM_DATA_REGIONS; i++) {
         TCGLabel *next = gen_new_label();
 
+        TCGv enabled = tcg_temp_new();
         TCGv prefix = tcg_temp_new();
         TCGv mask = tcg_temp_new();
         TCGv perm = tcg_temp_new();
+        
+        // if the enabled bit in the region is 0 --> skip
+        tcg_gen_ld_tl(enabled, tcg_env, offsetof(CPURISCVState, implicit_data_regions[i].enabled));
+        tcg_gen_brcondi_tl(TCG_COND_EQ, enabled, 0, next);
 
         tcg_gen_ld_tl(prefix, tcg_env, offsetof(CPURISCVState, implicit_data_regions[i].prefix));
         tcg_gen_ld_tl(mask, tcg_env, offsetof(CPURISCVState, implicit_data_regions[i].mask));
@@ -419,6 +424,7 @@ static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_
         tcg_gen_brcond_tl(TCG_COND_EQ, tmp, prefix, pass);
 
         gen_set_label(next);
+        tcg_temp_free(enabled);
         tcg_temp_free(prefix);
         tcg_temp_free(mask);
         tcg_temp_free(perm);

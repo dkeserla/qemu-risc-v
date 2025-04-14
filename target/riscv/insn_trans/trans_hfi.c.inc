@@ -20,7 +20,9 @@ static bool trans_hfi_exit(DisasContext *ctx, arg_hfi_exit *arg)
 
 static bool trans_hfi_set_region_size(DisasContext *ctx, arg_hfi_set_region_size *arg)
 {
-    TCGv_i32 region_number = tcg_const_i32(arg->region_number);
+    TCGv_i32 region_number = tcg_temp_new_i32();
+    tcg_gen_trunc_tl_i32(region_number, get_gpr(ctx, arg->rd, EXT_NONE));
+
     TCGv_i64 base = get_gpr(ctx, arg->rs1, EXT_NONE);
     TCGv_i64 mask_or_bound = get_gpr(ctx, arg->rs2, EXT_NONE);
     
@@ -32,12 +34,12 @@ static bool trans_hfi_set_region_size(DisasContext *ctx, arg_hfi_set_region_size
 
 static bool trans_hfi_set_region_permissions(DisasContext *ctx, arg_hfi_set_region_permissions *arg)
 {
-    TCGv_i32 region_number = tcg_const_i32(arg->region_number);
-    TCGv_i64 permission_64 = get_gpr(ctx, arg->rs1, EXT_NONE);
-    TCGv_i32 permission = tcg_temp_new_i32();
+    TCGv_i32 region_number = tcg_temp_new_i32();
+    tcg_gen_trunc_tl_i32(region_number, get_gpr(ctx, arg->rs2, EXT_NONE));
     
     /* Extract the lower 8 bits from rs1 as permissions */
-    tcg_gen_extrl_i64_i32(permission, permission_64);
+    TCGv_i32 permission = tcg_temp_new_i32();
+    tcg_gen_trunc_tl_i32(permission, get_gpr(ctx, arg->rs1, EXT_NONE));
     tcg_gen_andi_i32(permission, permission, 0xFF);
     
     gen_helper_hfi_set_region_permissions(tcg_env, region_number, permission);
