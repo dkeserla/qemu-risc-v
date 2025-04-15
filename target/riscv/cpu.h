@@ -233,7 +233,7 @@ typedef struct HFIImplicitDataRegion {
 typedef struct HFIImplicitCodeRegion {
     uint64_t prefix;     // base prefix
     uint64_t mask;       // lsb_mask 
-        bool perm_exec;      // permission bit execute
+    bool perm_exec;      // permission bit execute
     bool enabled;        // enabled bit
 } HFIImplicitCodeRegion;
 

@@ -1243,11 +1243,15 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
         TCGLabel *next = gen_new_label();
 
         TCGv enabled = tcg_temp_new();
+        TCGv perm_exec = tcg_temp_new();
         TCGv prefix = tcg_temp_new();
         TCGv mask = tcg_temp_new();
 
         tcg_gen_ld_tl(enabled, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].enabled));
         tcg_gen_brcondi_tl(TCG_COND_EQ, enabled, 0, next);
+
+        tcg_gen_ld_tl(perm_exec, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].perm_exec));
+        tcg_gen_brcondi_tl(TCG_COND_EQ, perm_exec, 0, next);
 
         tcg_gen_ld_tl(prefix, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].prefix));
         tcg_gen_ld_tl(mask, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].mask));
@@ -1271,6 +1275,7 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
         tcg_temp_free(pc_masked);
         tcg_temp_free(end_masked);
         tcg_temp_free(enabled);
+        tcg_temp_free(perm_exec);
         tcg_temp_free(prefix);
         tcg_temp_free(mask);
     }
