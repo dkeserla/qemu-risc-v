@@ -1281,7 +1281,7 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
     }
 
     // If no region matched → trap
-    generate_exception(ctx, RISCV_EXCP_INST_ACCESS_FAULT); // DISAS_NORETURN inside here  // flags that this path ends TB execution
+    gen_helper_raise_exception(tcg_env, tcg_constant_i32(RISCV_EXCP_LOAD_ACCESS_FAULT));
 
     // If passed → continue translating
     gen_set_label(pass);
