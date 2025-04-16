@@ -30,6 +30,6 @@ void helper_hfi_set_region_size(CPURISCVState *env, uint32_t region_number, uint
  *   r2_enabled:r2_read:r2_write:
  *   r3_enabled:r3_exec
  */
-void helper_hfi_set_region_permissions(CPURISCVState *env, uint32_t region_number, uint8_t permission);
+void helper_hfi_set_region_permissions(CPURISCVState *env, uint32_t region_number, uint32_t permission);
 
 #endif /* RISCV_HFI_HELPER_H */

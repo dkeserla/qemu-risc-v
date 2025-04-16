@@ -59,7 +59,7 @@ void helper_hfi_set_region_size(CPURISCVState *env, uint32_t region_number,
 }
 
 void helper_hfi_set_region_permissions(CPURISCVState *env, uint32_t region_number, 
-                                      uint8_t permission)
+                                      uint32_t permission)
 {
     /* Check for explicit data regions: 0 <= region_number < HFI_NUM_DATA_REGIONS */
     if (region_number < HFI_NUM_DATA_REGIONS) {
