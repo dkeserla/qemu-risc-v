@@ -1282,6 +1282,10 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
         gen_set_label(next);
     }
 
+    gen_helper_hfi_trap_log(tcg_env,
+        tcg_constant_i32(0),             // always read for PC fetch
+        tcg_constant_i32(2));            // region_type = 2 (internal code)
+    
     gen_helper_raise_exception(tcg_env, tcg_constant_i32(RISCV_EXCP_LOAD_ACCESS_FAULT));
 
     gen_set_label(pass);

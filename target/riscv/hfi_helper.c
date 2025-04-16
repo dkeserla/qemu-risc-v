@@ -17,6 +17,19 @@ void helper_hfi_log(CPURISCVState *env, uint64_t addr, uint64_t prefix, uint64_t
         type_str, region, addr, mask, addr & mask, prefix, matched);
 }
 
+void helper_hfi_trap_log(CPURISCVState *env, int access_type, int region_type) {
+    const char *atype = (access_type == 0) ? "read" : "write";
+    const char *rtype = "(unknown)";
+
+    switch (region_type) {
+        case 0: rtype = "explicit"; break;
+        case 1: rtype = "data";     break;
+        case 2: rtype = "internal"; break;
+    }
+
+    qemu_log_mask(LOG_UNIMP, "HFI: trap → no %s permission matched in %s region\n", atype, rtype);
+}
+
 
 void helper_hfi_enter(CPURISCVState *env, uint64_t exit_handler)
 {

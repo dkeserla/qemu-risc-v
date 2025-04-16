@@ -449,6 +449,10 @@ static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_
     }
 
     // trap: no region matched
+    gen_helper_hfi_trap_log(tcg_env,
+        tcg_constant_i32(access_type),   // 0 = read, 1 = write
+        tcg_constant_i32(1));            // region_type = 1 (data)
+    
     gen_helper_raise_exception(tcg_env, tcg_constant_i32(RISCV_EXCP_LOAD_ACCESS_FAULT));
 
     gen_set_label(pass);
