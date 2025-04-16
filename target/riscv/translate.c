@@ -1271,13 +1271,13 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
 
         gen_set_label(next);
 
-        // Clean up temps for this region
-        tcg_temp_free(pc_masked);
-        tcg_temp_free(end_masked);
-        tcg_temp_free(enabled);
-        tcg_temp_free(perm_exec);
-        tcg_temp_free(prefix);
-        tcg_temp_free(mask);
+        // Clean up temps for this region - apparently done at end of TB if TEMP_TB
+        // tcg_temp_free(pc_masked);
+        // tcg_temp_free(end_masked);
+        // tcg_temp_free(enabled);
+        // tcg_temp_free(perm_exec);
+        // tcg_temp_free(prefix);
+        // tcg_temp_free(mask);
     }
 
     // If no region matched → trap
@@ -1287,9 +1287,9 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
     gen_set_label(pass);
     gen_set_label(skip);  // Not sandboxed → skip check
 
-    tcg_temp_free(pc);
-    tcg_temp_free(pc_end);
-    tcg_temp_free(hfi_status);
+    // tcg_temp_free(pc);
+    // tcg_temp_free(pc_end);
+    // tcg_temp_free(hfi_status);
 }
 
 

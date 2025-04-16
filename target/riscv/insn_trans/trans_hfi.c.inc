@@ -1,6 +1,7 @@
 #include "hfi_helper.h"
 #include "tcg/tcg.h"
 #include "tcg/tcg-op.h"
+#include "tcg/tcg-temp-internal.h"
 
 #include "exec/helper-proto.h"
 

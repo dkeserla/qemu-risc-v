@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+// #include "tcg/tcg-temp-internal.h"
 
 static bool trans_illegal(DisasContext *ctx, arg_empty *a)
 {
@@ -424,10 +425,11 @@ static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_
         tcg_gen_brcond_tl(TCG_COND_EQ, tmp, prefix, pass);
 
         gen_set_label(next);
-        tcg_temp_free(enabled);
-        tcg_temp_free(prefix);
-        tcg_temp_free(mask);
-        tcg_temp_free(perm);
+        // free'd at end of TB since TCGv?
+        // tcg_temp_free(enabled);
+        // tcg_temp_free(prefix);
+        // tcg_temp_free(mask);
+        // tcg_temp_free(perm);
     }
 
     // trap: no region matched
@@ -435,8 +437,8 @@ static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_
 
     gen_set_label(pass);
     gen_set_label(skip);
-    tcg_temp_free(hfi_status);
-    tcg_temp_free(tmp);
+    // tcg_temp_free(hfi_status);
+    // tcg_temp_free(tmp);
 }
 
 
