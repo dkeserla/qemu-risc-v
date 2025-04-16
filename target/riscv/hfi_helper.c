@@ -2,6 +2,22 @@
 #include "qemu/log.h"
 #include "trace.h"
 
+void helper_hfi_log(CPURISCVState *env, uint64_t addr, uint64_t prefix, uint64_t mask,
+                    int region, int matched, int region_type) {
+    const char *type_str = "(unknown)";
+    switch (region_type) {
+        case 0: type_str = "explicit"; break;
+        case 1: type_str = "data";     break;
+        case 2: type_str = "internal"; break;
+    }
+
+    qemu_log_mask(LOG_UNIMP,
+        "HFI: [%s region %d] addr=0x%016" PRIx64 " & mask=0x%016" PRIx64
+        " → 0x%016" PRIx64 ", expecting prefix=0x%016" PRIx64 " → match=%d\n",
+        type_str, region, addr, mask, addr & mask, prefix, matched);
+}
+
+
 void helper_hfi_enter(CPURISCVState *env, uint64_t exit_handler)
 {
     /* Set HFI sandbox active: status = 1 and record the 64-bit exit handler */

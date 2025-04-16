@@ -1231,11 +1231,9 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
     TCGLabel *skip = gen_new_label();
     TCGLabel *pass = gen_new_label();
 
-    // if (hfi_status == 0) goto skip;
     tcg_gen_ld8u_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
     tcg_gen_brcondi_tl(TCG_COND_EQ, hfi_status, 0, skip);
 
-    // Instruction PC range
     TCGv pc = tcg_constant_tl(ctx->base.pc_next);
     TCGv pc_end = tcg_constant_tl(ctx->base.pc_next + ctx->cur_insn_len - 1);
 
@@ -1256,41 +1254,40 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
         tcg_gen_ld_tl(prefix, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].prefix));
         tcg_gen_ld_tl(mask, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].mask));
 
-        // Compute masked pc and pc_end
+        // Log current PC check
+        TCGv_i64 pc_i64 = tcg_temp_new_i64();
+        TCGv_i64 prefix_i64 = tcg_temp_new_i64();
+        TCGv_i64 mask_i64 = tcg_temp_new_i64();
+        TCGv_i32 region_i32 = tcg_constant_i32(i);
+        TCGv_i32 matched_i32 = tcg_constant_i32(0);  // before match
+
+        tcg_gen_extu_tl_i64(pc_i64, pc);
+        tcg_gen_extu_tl_i64(prefix_i64, prefix);
+        tcg_gen_extu_tl_i64(mask_i64, mask);
+
+        gen_helper_hfi_log(tcg_env, pc_i64, prefix_i64, mask_i64,
+                   region_i32, matched_i32, tcg_constant_i32(2));
+
+
+        // Perform masking and check
         TCGv pc_masked = tcg_temp_new();
         TCGv end_masked = tcg_temp_new();
 
         tcg_gen_and_tl(pc_masked, pc, mask);
         tcg_gen_and_tl(end_masked, pc_end, mask);
 
-        // If pc_masked != prefix → next
         tcg_gen_brcond_tl(TCG_COND_NE, pc_masked, prefix, next);
-
-        // If end_masked == prefix → pass
         tcg_gen_brcond_tl(TCG_COND_EQ, end_masked, prefix, pass);
 
         gen_set_label(next);
-
-        // Clean up temps for this region - apparently done at end of TB if TEMP_TB
-        // tcg_temp_free(pc_masked);
-        // tcg_temp_free(end_masked);
-        // tcg_temp_free(enabled);
-        // tcg_temp_free(perm_exec);
-        // tcg_temp_free(prefix);
-        // tcg_temp_free(mask);
     }
 
-    // If no region matched → trap
     gen_helper_raise_exception(tcg_env, tcg_constant_i32(RISCV_EXCP_LOAD_ACCESS_FAULT));
 
-    // If passed → continue translating
     gen_set_label(pass);
-    gen_set_label(skip);  // Not sandboxed → skip check
-
-    // tcg_temp_free(pc);
-    // tcg_temp_free(pc_end);
-    // tcg_temp_free(hfi_status);
+    gen_set_label(skip);
 }
+
 
 
 static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)

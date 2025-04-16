@@ -422,6 +422,20 @@ static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_
         tcg_gen_brcondi_tl(TCG_COND_EQ, perm, 0, next);  // no permission → skip
 
         tcg_gen_and_tl(tmp, addr, mask);
+
+        TCGv_i64 addr_i64 = tcg_temp_new_i64();
+        TCGv_i64 prefix_i64 = tcg_temp_new_i64();
+        TCGv_i64 mask_i64 = tcg_temp_new_i64();
+        TCGv_i32 region_i32 = tcg_constant_i32(i);
+        TCGv_i32 matched_i32 = tcg_constant_i32(0);  // false by default
+
+        tcg_gen_extu_tl_i64(addr_i64, addr);
+        tcg_gen_extu_tl_i64(prefix_i64, prefix);
+        tcg_gen_extu_tl_i64(mask_i64, mask);
+
+        gen_helper_hfi_log(tcg_env, addr_i64, prefix_i64, mask_i64,
+            region_i32, matched_i32, tcg_constant_i32(1));
+
         tcg_gen_brcond_tl(TCG_COND_EQ, tmp, prefix, pass);
 
         gen_set_label(next);
@@ -430,6 +444,8 @@ static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_
         // tcg_temp_free(prefix);
         // tcg_temp_free(mask);
         // tcg_temp_free(perm);
+
+        
     }
 
     // trap: no region matched
