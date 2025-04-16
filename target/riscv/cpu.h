@@ -204,8 +204,8 @@ typedef struct PMUFixedCtrState {
 
 // HFI Structs 
 // TODO: could wrap with ifdef
-#define HFI_NUM_DATA_REGIONS 4 // double duty for implicit and explicit
-#define HFI_NUM_CODE_REGIONS 2
+#define HFI_NUM_DATA_REGIONS 1 // double duty for implicit and explicit
+#define HFI_NUM_CODE_REGIONS 1
 
 /* Permission bit positions for explicit data regions (R1) */
 #define HFI_R1_ENABLED_BIT   7
