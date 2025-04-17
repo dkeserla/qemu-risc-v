@@ -1072,7 +1072,7 @@ amocas_b    00101 . . ..... ..... 000 ..... 0101111 @atom_st
 amocas_h    00101 . . ..... ..... 001 ..... 0101111 @atom_st
 
 # HFI instructions 
-hfi_enter 0000000 00000 ..... 000 00000 0001011 @r1
+hfi_enter 0000000 ..... ..... 000 00000 0001011 @r2_s
 hfi_exit  0000000 00000 00000 001 00000 0001011 @empty
 hfi_set_region_size 0000000 ..... ..... 010 ..... 0001011 @r
 hfi_set_region_permissions 0000000 ..... ..... 011 00000 0001011 @r2_s #rd is assumed to be 0

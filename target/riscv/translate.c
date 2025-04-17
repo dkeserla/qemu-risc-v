@@ -1231,6 +1231,7 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
     TCGLabel *skip = gen_new_label();
     TCGLabel *pass = gen_new_label();
 
+    // TODO: redundant hfi_status check b/c we now check before calling gen_hfi_check_current_pc
     tcg_gen_ld8u_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
     tcg_gen_brcondi_tl(TCG_COND_EQ, hfi_status, 0, skip);
 
@@ -1301,7 +1302,9 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
 
     // check hfi code here
 
-    gen_hfi_check_current_pc(ctx); // can generate if hfi_status == 1 since sandboxed code always sandboxed
+    if (env->hfi_status == 1 && env->hfi_region_type == 2) { 
+        gen_hfi_check_current_pc(ctx); // can generate if hfi_status == 1 since sandboxed code always sandboxed
+    }
 
     /* Check for compressed insn */
     if (ctx->cur_insn_len == 2) {

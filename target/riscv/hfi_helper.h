@@ -6,8 +6,13 @@
 
 /* 
  * This function takes one 64-bit argument representing the exit handler.
+ * The region_type parameter specifies the type of region to use:
+ *   0 = no sandboxing
+ *   1 = explicit regions
+ *   2 = implicit regions
+ *   (other values reserved for future use)
  */
-void helper_hfi_enter(CPURISCVState *env, uint64_t exit_handler);
+void helper_hfi_enter(CPURISCVState *env, uint64_t exit_handler, uint32_t region_type);
 
 /*
  * Exits the HFI sandbox by resetting the HFI status.
