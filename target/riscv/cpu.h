@@ -549,6 +549,24 @@ struct CPUArchState {
 
     HFIImplicitDataRegion implicit_data_regions[HFI_NUM_DATA_REGIONS]; // r2
     HFIImplicitCodeRegion implicit_code_regions[HFI_NUM_CODE_REGIONS]; // r3
+
+    /*
+    TODO: Implement a boolean array of data regions that have actually been
+    set using hfi_set_region_size. This is to prevent users from calling
+    hfi_set_region_permissions with an index that has not been set using
+    hfi_set_region_size. In specific usecases, if users do this, then they
+    will cause a region they may not intend to exist to end up existing due
+    to default value of the region having offset and mask 0.
+    Example:
+    user sets permissions for data region 0 which hasn't been set using
+    hfi_set_region_size. So data region 0 has offset and mask 0. Then the
+    user calls hfi_set_region_permissions with region number 0. This will
+    work because 
+    ddr=0x0000000080001000 & mask=0x0000000000000000 → 0x0000000000000000,
+    expecting prefix=0x0000000000000000 → match=0.
+    Hence, users are able to use data region 0 despite not calling
+    hfi_set_region_size.
+    */
     
 };
 
