@@ -395,12 +395,11 @@ static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_
     TCGLabel *skip = gen_new_label();
     TCGLabel *pass = gen_new_label();
     TCGv tmp = tcg_temp_new();
-    TCGv hfi_status = tcg_temp_new();
+    TCGv hfi_region_type = tcg_temp_new();
 
-    // if (!env->hfi_status) goto skip
-    // TODO redundant hfi_status check b/c we now check before calling gen_hfi_check_data_address
-    tcg_gen_ld8u_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
-    tcg_gen_brcondi_tl(TCG_COND_EQ, hfi_status, 0, skip);
+    // if (env->hfi_region_type != 2) goto skip
+    tcg_gen_ld8u_tl(hfi_region_type, tcg_env, offsetof(CPURISCVState, hfi_region_type));
+    tcg_gen_brcondi_tl(TCG_COND_NE, hfi_region_type, 2, skip); // check region is not implicit (2)
 
     for (int i = 0; i < HFI_NUM_DATA_REGIONS; i++) {
         TCGLabel *next = gen_new_label();
@@ -469,9 +468,13 @@ static bool gen_load_tl(DisasContext *ctx, arg_lb *a, MemOp memop)
     TCGv dest = dest_gpr(ctx, a->rd);
     TCGv addr = get_address(ctx, a->rs1, a->imm);
 
-    // TODO need to implement this check below but don't have access to CPURISCVState
-    // if (ctx->hfi_status==1 && ctx->hfi_region_type == 2) {
-    gen_hfi_check_data_address(ctx, addr, 0); // check read access
+    // hfi_status shouldn't change for the cached translate blocks
+    // assuming sandboxed code always sandboxed
+    CPURISCVState *env = cpu_env(ctx->cs);
+    if (env->hfi_status) {
+        gen_hfi_check_data_address(ctx, addr, 0); // check read access
+    }
+
 
     tcg_gen_qemu_ld_tl(dest, addr, ctx->mem_idx, memop);
     gen_set_gpr(ctx, a->rd, dest);
@@ -581,9 +584,12 @@ static bool gen_store_tl(DisasContext *ctx, arg_sb *a, MemOp memop)
     TCGv addr = get_address(ctx, a->rs1, a->imm);
     TCGv data = get_gpr(ctx, a->rs2, EXT_NONE);
     
-    // TODO need to implement this check below but don't have access to CPURISCVState
-    // if (ctx->hfi_status==1 && ctx->hfi_region_type == 2)
-    gen_hfi_check_data_address(ctx, addr, 1); // check write access
+    // hfi_status shouldn't change for the cached translate blocks
+    // assuming sandboxed code always sandboxed
+    CPURISCVState *env = cpu_env(ctx->cs);
+    if (env->hfi_status) {
+        gen_hfi_check_data_address(ctx, addr, 1); // check write access
+    }
 
     if (ctx->ztso) {
         tcg_gen_mb(TCG_MO_ALL | TCG_BAR_STRL);

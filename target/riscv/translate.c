@@ -1227,13 +1227,15 @@ const RISCVDecoder decoder_table[] = {
 const size_t decoder_table_size = ARRAY_SIZE(decoder_table);
 
 static void gen_hfi_check_current_pc(DisasContext *ctx) {
-    TCGv hfi_status = tcg_temp_new();
+    // TCGv hfi_status = tcg_temp_new();
     TCGLabel *skip = gen_new_label();
     TCGLabel *pass = gen_new_label();
 
     // TODO: redundant hfi_status check b/c we now check before calling gen_hfi_check_current_pc
-    tcg_gen_ld8u_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
-    tcg_gen_brcondi_tl(TCG_COND_EQ, hfi_status, 0, skip);
+
+    // code regions always necessary to check if hfi is on
+    // tcg_gen_ld8u_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
+    // tcg_gen_brcondi_tl(TCG_COND_EQ, hfi_status, 0, skip);
 
     TCGv pc = tcg_constant_tl(ctx->base.pc_next);
     TCGv pc_end = tcg_constant_tl(ctx->base.pc_next + ctx->cur_insn_len - 1);
@@ -1302,8 +1304,10 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
 
     // check hfi code here
 
-    if (env->hfi_status == 1 && env->hfi_region_type == 2) { 
-        gen_hfi_check_current_pc(ctx); // can generate if hfi_status == 1 since sandboxed code always sandboxed
+    // hfi_status shouldn't change for the cached translate blocks
+    // assuming sandboxed code always sandboxed
+    if (env->hfi_status == 1) { 
+        gen_hfi_check_current_pc(ctx);
     }
 
     /* Check for compressed insn */

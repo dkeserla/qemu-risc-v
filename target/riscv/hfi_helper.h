@@ -12,7 +12,7 @@
  *   2 = implicit regions
  *   (other values reserved for future use)
  */
-void helper_hfi_enter(CPURISCVState *env, uint64_t exit_handler, uint32_t region_type);
+void helper_hfi_enter(CPURISCVState *env, uint32_t region_type, uint64_t exit_handler);
 
 /*
  * Exits the HFI sandbox by resetting the HFI status.
