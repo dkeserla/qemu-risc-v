@@ -399,6 +399,8 @@ static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_
 
     // if (env->hfi_region_type != 2) goto skip
     tcg_gen_ld8u_tl(hfi_region_type, tcg_env, offsetof(CPURISCVState, hfi_region_type));
+    qemu_log_mask(LOG_UNIMP, "HFI: print 2, region_type=%u\n", hfi_region_type);
+    gen_helper_hfi_print(tcg_env);
     tcg_gen_brcondi_tl(TCG_COND_NE, hfi_region_type, 2, skip); // check region is not implicit (2)
 
     for (int i = 0; i < HFI_NUM_DATA_REGIONS; i++) {

@@ -145,3 +145,8 @@ void helper_hfi_set_region_permissions(CPURISCVState *env, uint32_t region_numbe
         qemu_log_mask(LOG_GUEST_ERROR, "HFI: Invalid region number %d\n", region_number);
     }
 }
+
+void helper_hfi_print(CPURISCVState *env) {
+    qemu_log_mask(LOG_UNIMP, "HFI: print, region_type=%u, exit_handler=0x%016" PRIx64 "\n", 
+        env->hfi_region_type,  env->hfi_exit_pc);
+}
