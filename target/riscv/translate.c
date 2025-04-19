@@ -1230,10 +1230,10 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
     TCGLabel *skip = gen_new_label();
     TCGLabel *pass = gen_new_label();
 
-    // TCGv hfi_status = tcg_temp_new();
+    TCGv hfi_status = tcg_temp_new();
 
-    // tcg_gen_ld_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
-    // tcg_gen_brcondi_tl(TCG_COND_NE, hfi_status, 1, skip);
+    tcg_gen_ld_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
+    tcg_gen_brcondi_tl(TCG_COND_NE, hfi_status, 1, skip);
 
     TCGv pc = tcg_constant_tl(ctx->base.pc_next);
     TCGv pc_end = tcg_constant_tl(ctx->base.pc_next + ctx->cur_insn_len - 1);
@@ -1259,15 +1259,15 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
         TCGv_i64 pc_i64 = tcg_temp_new_i64();
         TCGv_i64 prefix_i64 = tcg_temp_new_i64();
         TCGv_i64 mask_i64 = tcg_temp_new_i64();
-        TCGv_i32 region_i32 = tcg_constant_i32(i);
-        TCGv_i32 matched_i32 = tcg_constant_i32(0);  // before match
+        TCGv_i64 region_i64 = tcg_constant_i64(i);
+        TCGv_i64 matched_i64 = tcg_constant_i64(0);  // before match
 
         tcg_gen_extu_tl_i64(pc_i64, pc);
         tcg_gen_extu_tl_i64(prefix_i64, prefix);
         tcg_gen_extu_tl_i64(mask_i64, mask);
 
         gen_helper_hfi_log(tcg_env, pc_i64, prefix_i64, mask_i64,
-                   region_i32, matched_i32, tcg_constant_i32(2));
+                   region_i64, matched_i64, tcg_constant_i64(2));
 
         // Perform masking and check
         TCGv pc_masked = tcg_temp_new();
@@ -1283,8 +1283,8 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
     }
 
     gen_helper_hfi_trap_log(tcg_env,
-        tcg_constant_i32(0),             // always read for PC fetch
-        tcg_constant_i32(2));            // region_type = 2 (internal code)
+        tcg_constant_i64(0),             // always read for PC fetch
+        tcg_constant_i64(2));            // region_type = 2 (internal code)
     
     gen_helper_raise_exception(tcg_env, tcg_constant_i32(RISCV_EXCP_LOAD_ACCESS_FAULT));
 

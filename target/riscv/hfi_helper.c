@@ -3,7 +3,7 @@
 #include "trace.h"
 
 void helper_hfi_log(CPURISCVState *env, uint64_t addr, uint64_t prefix, uint64_t mask,
-                    uint32_t region, uint32_t matched, uint32_t region_type) {
+                    uint64_t region, uint64_t matched, uint64_t region_type) {
     const char *type_str = "(unknown)";
     switch (region_type) {
         case 0: type_str = "explicit"; break;
@@ -17,7 +17,7 @@ void helper_hfi_log(CPURISCVState *env, uint64_t addr, uint64_t prefix, uint64_t
         type_str, region, addr, mask, addr & mask, prefix, matched);
 }
 
-void helper_hfi_trap_log(CPURISCVState *env, uint32_t access_type, uint32_t region_type) {
+void helper_hfi_trap_log(CPURISCVState *env, uint64_t access_type, uint64_t region_type) {
     const char *atype = (access_type == 0) ? "read" : "write";
     const char *rtype = "(unknown)";
 
@@ -53,7 +53,7 @@ void helper_hfi_exit(CPURISCVState *env)
     qemu_log_mask(LOG_UNIMP, "HFI: Exited sandbox mode\n");
 }
 
-void helper_hfi_set_region_size(CPURISCVState *env, uint32_t region_number, 
+void helper_hfi_set_region_size(CPURISCVState *env, uint64_t region_number, 
                                uint64_t base, uint64_t mask_or_bound)
 {
     /* Check for explicit data regions: 0 <= region_number < HFI_NUM_DATA_REGIONS */
@@ -67,7 +67,7 @@ void helper_hfi_set_region_size(CPURISCVState *env, uint32_t region_number,
     /* Check for implicit data regions: HFI_NUM_DATA_REGIONS <= region_number < 2*HFI_NUM_DATA_REGIONS */
     else if (region_number < 2 * HFI_NUM_DATA_REGIONS) {
         /* Calculate index into implicit_data_regions array */
-        uint32_t idx = region_number - HFI_NUM_DATA_REGIONS;
+        uint64_t idx = region_number - HFI_NUM_DATA_REGIONS;
         
         /* For implicit data region */
         env->implicit_data_regions[idx].prefix = base;
@@ -79,7 +79,7 @@ void helper_hfi_set_region_size(CPURISCVState *env, uint32_t region_number,
     /* Check for implicit code regions: 2*HFI_NUM_DATA_REGIONS <= region_number < 2*HFI_NUM_DATA_REGIONS+HFI_NUM_CODE_REGIONS */
     else if (region_number < 2 * HFI_NUM_DATA_REGIONS + HFI_NUM_CODE_REGIONS) {
         /* Calculate index into implicit_code_regions array */
-        uint32_t idx = region_number - 2 * HFI_NUM_DATA_REGIONS;
+        uint64_t idx = region_number - 2 * HFI_NUM_DATA_REGIONS;
         
         /* For implicit code region */
         env->implicit_code_regions[idx].prefix = base;
@@ -92,8 +92,8 @@ void helper_hfi_set_region_size(CPURISCVState *env, uint32_t region_number,
     }
 }
 
-void helper_hfi_set_region_permissions(CPURISCVState *env, uint32_t region_number, 
-                                      uint32_t permission)
+void helper_hfi_set_region_permissions(CPURISCVState *env, uint64_t region_number, 
+                                      uint64_t permission)
 {
     /* Check for explicit data regions: 0 <= region_number < HFI_NUM_DATA_REGIONS */
     if (region_number < HFI_NUM_DATA_REGIONS) {
@@ -135,7 +135,7 @@ void helper_hfi_set_region_permissions(CPURISCVState *env, uint32_t region_numbe
         bool exec = (permission >> HFI_R3_EXEC_BIT) & 0x1;
         
         /* Calculate index into implicit_code_regions array */
-        uint32_t idx = region_number - 2 * HFI_NUM_DATA_REGIONS;
+        uint64_t idx = region_number - 2 * HFI_NUM_DATA_REGIONS;
         
         /* Configure implicit code region */
         env->implicit_code_regions[idx].perm_exec = exec;

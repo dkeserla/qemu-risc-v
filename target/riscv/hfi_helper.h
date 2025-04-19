@@ -5,9 +5,9 @@
 #include "cpu.h"
 
 void helper_hfi_log(CPURISCVState *env, uint64_t addr, uint64_t prefix, uint64_t mask,
-    uint32_t region, uint32_t matched, uint32_t region_type);
+    uint64_t region, uint64_t matched, uint64_t region_type);
 
-void helper_hfi_trap_log(CPURISCVState *env, uint32_t access_type, uint32_t region_type);
+void helper_hfi_trap_log(CPURISCVState *env, uint64_t access_type, uint64_t region_type);
 
 /* 
  * This function takes one 64-bit argument representing the exit handler.
@@ -30,7 +30,7 @@ void helper_hfi_exit(CPURISCVState *env);
  * base: base address of the region
  * mask_or_bound: size mask or bound of the region
  */
-void helper_hfi_set_region_size(CPURISCVState *env, uint32_t region_number, uint64_t base, uint64_t mask_or_bound);
+void helper_hfi_set_region_size(CPURISCVState *env, uint64_t region_number, uint64_t base, uint64_t mask_or_bound);
 
 /*
  * Set HFI region permissions for a specific permission set
@@ -40,7 +40,7 @@ void helper_hfi_set_region_size(CPURISCVState *env, uint32_t region_number, uint
  *   r2_enabled:r2_read:r2_write:
  *   r3_enabled:r3_exec
  */
-void helper_hfi_set_region_permissions(CPURISCVState *env, uint32_t region_number, uint32_t permission);
+void helper_hfi_set_region_permissions(CPURISCVState *env, uint64_t region_number, uint64_t permission);
 
 
 void helper_hfi_print(CPURISCVState *env);
