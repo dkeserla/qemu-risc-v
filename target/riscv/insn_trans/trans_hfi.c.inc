@@ -8,15 +8,13 @@
 static bool trans_hfi_enter(DisasContext *ctx, arg_hfi_enter *arg)
 {
     // Get the region_type from rs1 
-    TCGv_i32 region_type = tcg_temp_new_i32();
-    tcg_gen_trunc_tl_i32(region_type, get_gpr(ctx, arg->rs1, EXT_NONE));
+    TCGv_i64 region_type = get_gpr(ctx, arg->rs1, EXT_NONE);
 
     // pulls the 64 bit value out of the register passed into rs2
     TCGv_i64 exit_handler_val = get_gpr(ctx, arg->rs2, EXT_NONE);
     
     gen_helper_hfi_enter(tcg_env, region_type, exit_handler_val);
     
-    tcg_temp_free_i32(region_type);
     return true;
 }
 

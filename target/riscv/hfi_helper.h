@@ -4,6 +4,11 @@
 #include "qemu/osdep.h"
 #include "cpu.h"
 
+void helper_hfi_log(CPURISCVState *env, uint64_t addr, uint64_t prefix, uint64_t mask,
+    uint32_t region, uint32_t matched, uint32_t region_type);
+
+void helper_hfi_trap_log(CPURISCVState *env, uint32_t access_type, uint32_t region_type);
+
 /* 
  * This function takes one 64-bit argument representing the exit handler.
  * The region_type parameter specifies the type of region to use:
@@ -12,7 +17,7 @@
  *   2 = implicit regions
  *   (other values reserved for future use)
  */
-void helper_hfi_enter(CPURISCVState *env, uint32_t region_type, uint64_t exit_handler);
+void helper_hfi_enter(CPURISCVState *env, uint64_t region_type, uint64_t exit_handler);
 
 /*
  * Exits the HFI sandbox by resetting the HFI status.

@@ -1227,15 +1227,13 @@ const RISCVDecoder decoder_table[] = {
 const size_t decoder_table_size = ARRAY_SIZE(decoder_table);
 
 static void gen_hfi_check_current_pc(DisasContext *ctx) {
-    // TCGv hfi_status = tcg_temp_new();
     TCGLabel *skip = gen_new_label();
     TCGLabel *pass = gen_new_label();
 
-    // TODO: redundant hfi_status check b/c we now check before calling gen_hfi_check_current_pc
+    // TCGv hfi_status = tcg_temp_new();
 
-    // code regions always necessary to check if hfi is on
-    // tcg_gen_ld8u_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
-    // tcg_gen_brcondi_tl(TCG_COND_EQ, hfi_status, 0, skip);
+    // tcg_gen_ld_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
+    // tcg_gen_brcondi_tl(TCG_COND_NE, hfi_status, 1, skip);
 
     TCGv pc = tcg_constant_tl(ctx->base.pc_next);
     TCGv pc_end = tcg_constant_tl(ctx->base.pc_next + ctx->cur_insn_len - 1);
@@ -1271,7 +1269,6 @@ static void gen_hfi_check_current_pc(DisasContext *ctx) {
         gen_helper_hfi_log(tcg_env, pc_i64, prefix_i64, mask_i64,
                    region_i32, matched_i32, tcg_constant_i32(2));
 
-
         // Perform masking and check
         TCGv pc_masked = tcg_temp_new();
         TCGv end_masked = tcg_temp_new();
@@ -1303,12 +1300,8 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
     ctx->cur_insn_len = insn_len(opcode);
 
     // check hfi code here
-
-    // hfi_status shouldn't change for the cached translate blocks
-    // assuming sandboxed code always sandboxed
-    if (env->hfi_status == 1) { 
-        gen_hfi_check_current_pc(ctx);
-    }
+    // if (env->hfi_status) // adding this check can cause problems with cached TBs
+    gen_hfi_check_current_pc(ctx);
 
     /* Check for compressed insn */
     if (ctx->cur_insn_len == 2) {

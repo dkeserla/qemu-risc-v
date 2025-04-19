@@ -3,7 +3,7 @@
 #include "trace.h"
 
 void helper_hfi_log(CPURISCVState *env, uint64_t addr, uint64_t prefix, uint64_t mask,
-                    int region, int matched, int region_type) {
+                    uint32_t region, uint32_t matched, uint32_t region_type) {
     const char *type_str = "(unknown)";
     switch (region_type) {
         case 0: type_str = "explicit"; break;
@@ -17,7 +17,7 @@ void helper_hfi_log(CPURISCVState *env, uint64_t addr, uint64_t prefix, uint64_t
         type_str, region, addr, mask, addr & mask, prefix, matched);
 }
 
-void helper_hfi_trap_log(CPURISCVState *env, int access_type, int region_type) {
+void helper_hfi_trap_log(CPURISCVState *env, uint32_t access_type, uint32_t region_type) {
     const char *atype = (access_type == 0) ? "read" : "write";
     const char *rtype = "(unknown)";
 
@@ -31,14 +31,14 @@ void helper_hfi_trap_log(CPURISCVState *env, int access_type, int region_type) {
 }
 
 
-void helper_hfi_enter(CPURISCVState *env, uint32_t region_type, uint64_t exit_handler)
+void helper_hfi_enter(CPURISCVState *env, uint64_t region_type, uint64_t exit_handler)
 {
     /* Set HFI sandbox active: status = 1 and record the 64-bit exit handler */
     env->hfi_status = 1;
     env->hfi_exit_pc = exit_handler;
     env->hfi_region_type = region_type;
 
-    qemu_log_mask(LOG_UNIMP, "HFI: Enter sandbox mode, region_type=%u, exit_handler=0x%016" PRIx64 "\n", 
+    qemu_log_mask(LOG_UNIMP, "HFI: Enter sandbox mode, region_type=%llu, exit_handler=0x%016" PRIx64 "\n", 
                  region_type, exit_handler);
 }
 
@@ -46,8 +46,10 @@ void helper_hfi_exit(CPURISCVState *env)
 {
     /* Reset HFI sandbox state: status = 0 and clear the exit handler */
     env->hfi_status = 0;
-    env->hfi_exit_pc = 0;
-    env->hfi_region_type = 0;
+
+    // might want to reenter with same state
+    // env->hfi_exit_pc = 0;
+    // env->hfi_region_type = 0; 
     qemu_log_mask(LOG_UNIMP, "HFI: Exited sandbox mode\n");
 }
 
@@ -147,6 +149,6 @@ void helper_hfi_set_region_permissions(CPURISCVState *env, uint32_t region_numbe
 }
 
 void helper_hfi_print(CPURISCVState *env) {
-    qemu_log_mask(LOG_UNIMP, "HFI: print, region_type=%u, exit_handler=0x%016" PRIx64 "\n", 
+    qemu_log_mask(LOG_UNIMP, "HFI: print, region_type=%llu, exit_handler=0x%016" PRIx64 "\n", 
         env->hfi_region_type,  env->hfi_exit_pc);
 }

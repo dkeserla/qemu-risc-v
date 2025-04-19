@@ -395,13 +395,16 @@ static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_
     TCGLabel *skip = gen_new_label();
     TCGLabel *pass = gen_new_label();
     TCGv tmp = tcg_temp_new();
+    TCGv hfi_status = tcg_temp_new();
     TCGv hfi_region_type = tcg_temp_new();
 
-    // if (env->hfi_region_type != 2) goto skip
-    tcg_gen_ld8u_tl(hfi_region_type, tcg_env, offsetof(CPURISCVState, hfi_region_type));
-    qemu_log_mask(LOG_UNIMP, "HFI: print 2, region_type=%u\n", hfi_region_type);
-    gen_helper_hfi_print(tcg_env);
-    tcg_gen_brcondi_tl(TCG_COND_NE, hfi_region_type, 2, skip); // check region is not implicit (2)
+    tcg_gen_ld_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
+    tcg_gen_brcondi_tl(TCG_COND_NE, hfi_status, 1, skip);
+
+    // if (env->hfi_region_type != 0) goto skip
+    tcg_gen_ld_tl(hfi_region_type, tcg_env, offsetof(CPURISCVState, hfi_region_type));
+    // gen_helper_hfi_print(tcg_env);
+    tcg_gen_brcondi_tl(TCG_COND_NE, hfi_region_type, 0, skip); // check region is not implicit (0)
 
     for (int i = 0; i < HFI_NUM_DATA_REGIONS; i++) {
         TCGLabel *next = gen_new_label();
@@ -421,7 +424,7 @@ static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_
         // permission: perm_read at offset +0, perm_write at offset +1
         size_t perm_off = offsetof(CPURISCVState, implicit_data_regions[i].perm_read) +
                           (access_type ? 1 : 0);
-        tcg_gen_ld8u_tl(perm, tcg_env, perm_off);
+        tcg_gen_ld8u_tl(perm, tcg_env, perm_off); // TODO might have issues here with 1 bit ?
         tcg_gen_brcondi_tl(TCG_COND_EQ, perm, 0, next);  // no permission → skip
 
         tcg_gen_and_tl(tmp, addr, mask);
@@ -470,36 +473,31 @@ static bool gen_load_tl(DisasContext *ctx, arg_lb *a, MemOp memop)
     TCGv dest = dest_gpr(ctx, a->rd);
     TCGv addr = get_address(ctx, a->rs1, a->imm);
 
-    // // hfi_status shouldn't change for the cached translate blocks
-    // // assuming sandboxed code always sandboxed
-    // CPURISCVState *env = cpu_env(ctx->cs);
-    // if (env->hfi_status) {
-    //     gen_hfi_check_data_address(ctx, addr, 0); // check read access
-    // }
+    gen_hfi_check_data_address(ctx, addr, 0); // check read access
 
-    // Check HFI status and region type
-    TCGv hfi_status = tcg_temp_new();
-    TCGv hfi_region_type = tcg_temp_new();
-    TCGLabel *skip_hfi_check = gen_new_label();
+    // // Check HFI status and region type
+    // TCGv hfi_status = tcg_temp_new();
+    // TCGv hfi_region_type = tcg_temp_new();
+    // TCGLabel *skip_hfi_check = gen_new_label();
     
-    // Load HFI status and region type from env
-    tcg_gen_ld8u_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
-    tcg_gen_ld32u_tl(hfi_region_type, tcg_env, offsetof(CPURISCVState, hfi_region_type));
+    // // Load HFI status and region type from env
+    // tcg_gen_ld8u_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
+    // tcg_gen_ld32u_tl(hfi_region_type, tcg_env, offsetof(CPURISCVState, hfi_region_type));
     
-    // if (hfi_status != 1 || hfi_region_type != 2) goto skip_hfi_check;
-    TCGv temp = tcg_temp_new();
-    tcg_gen_xori_tl(temp, hfi_status, 1); // temp = (hfi_status != 1)
+    // // if (hfi_status != 1 || hfi_region_type != 2) goto skip_hfi_check;
+    // TCGv temp = tcg_temp_new();
+    // tcg_gen_xori_tl(temp, hfi_status, 1); // temp = (hfi_status != 1)
     
-    TCGv temp2 = tcg_temp_new();
-    tcg_gen_xori_tl(temp2, hfi_region_type, 2); // temp2 = (hfi_region_type != 2)
+    // TCGv temp2 = tcg_temp_new();
+    // tcg_gen_xori_tl(temp2, hfi_region_type, 2); // temp2 = (hfi_region_type != 2)
     
-    tcg_gen_or_tl(temp, temp, temp2); // temp = (hfi_status != 1 || hfi_region_type != 2)
-    tcg_gen_brcondi_tl(TCG_COND_NE, temp, 0, skip_hfi_check); // if temp != 0 goto skip
+    // tcg_gen_or_tl(temp, temp, temp2); // temp = (hfi_status != 1 || hfi_region_type != 2)
+    // tcg_gen_brcondi_tl(TCG_COND_NE, temp, 0, skip_hfi_check); // if temp != 0 goto skip
     
-    // HFI is active with implicit regions, so perform the check
-    gen_hfi_check_data_address(ctx, addr, 0);
+    // // HFI is active with implicit regions, so perform the check
+    // gen_hfi_check_data_address(ctx, addr, 0);
     
-    gen_set_label(skip_hfi_check);
+    // gen_set_label(skip_hfi_check);
 
     tcg_gen_qemu_ld_tl(dest, addr, ctx->mem_idx, memop);
     gen_set_gpr(ctx, a->rd, dest);
@@ -609,36 +607,32 @@ static bool gen_store_tl(DisasContext *ctx, arg_sb *a, MemOp memop)
     TCGv addr = get_address(ctx, a->rs1, a->imm);
     TCGv data = get_gpr(ctx, a->rs2, EXT_NONE);
     
-    // // hfi_status shouldn't change for the cached translate blocks
-    // // assuming sandboxed code always sandboxed
-    // CPURISCVState *env = cpu_env(ctx->cs);
-    // if (env->hfi_status) {
-    //     gen_hfi_check_data_address(ctx, addr, 1); // check write access
-    // }
+    
+    gen_hfi_check_data_address(ctx, addr, 1); // check write access
 
-    // Check HFI status and region type
-    TCGv hfi_status = tcg_temp_new();
-    TCGv hfi_region_type = tcg_temp_new();
-    TCGLabel *skip_hfi_check = gen_new_label();
+    // // Check HFI status and region type
+    // TCGv hfi_status = tcg_temp_new();
+    // TCGv hfi_region_type = tcg_temp_new();
+    // TCGLabel *skip_hfi_check = gen_new_label();
     
-    // Load HFI status and region type from env
-    tcg_gen_ld8u_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
-    tcg_gen_ld32u_tl(hfi_region_type, tcg_env, offsetof(CPURISCVState, hfi_region_type));
+    // // Load HFI status and region type from env
+    // tcg_gen_ld8u_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
+    // tcg_gen_ld32u_tl(hfi_region_type, tcg_env, offsetof(CPURISCVState, hfi_region_type));
     
-    // if (hfi_status != 1 || hfi_region_type != 2) goto skip_hfi_check;
-    TCGv temp = tcg_temp_new();
-    tcg_gen_xori_tl(temp, hfi_status, 1); // temp = (hfi_status != 1)
+    // // if (hfi_status != 1 || hfi_region_type != 2) goto skip_hfi_check;
+    // TCGv temp = tcg_temp_new();
+    // tcg_gen_xori_tl(temp, hfi_status, 1); // temp = (hfi_status != 1)
     
-    TCGv temp2 = tcg_temp_new();
-    tcg_gen_xori_tl(temp2, hfi_region_type, 2); // temp2 = (hfi_region_type != 2)
+    // TCGv temp2 = tcg_temp_new();
+    // tcg_gen_xori_tl(temp2, hfi_region_type, 2); // temp2 = (hfi_region_type != 2)
     
-    tcg_gen_or_tl(temp, temp, temp2); // temp = (hfi_status != 1 || hfi_region_type != 2)
-    tcg_gen_brcondi_tl(TCG_COND_NE, temp, 0, skip_hfi_check); // if temp != 0 goto skip
+    // tcg_gen_or_tl(temp, temp, temp2); // temp = (hfi_status != 1 || hfi_region_type != 2)
+    // tcg_gen_brcondi_tl(TCG_COND_NE, temp, 0, skip_hfi_check); // if temp != 0 goto skip
     
-    // HFI is active with implicit regions, so perform the check
-    gen_hfi_check_data_address(ctx, addr, 1);
+    // // HFI is active with implicit regions, so perform the check
+    // gen_hfi_check_data_address(ctx, addr, 1);
     
-    gen_set_label(skip_hfi_check);
+    // gen_set_label(skip_hfi_check);
 
     if (ctx->ztso) {
         tcg_gen_mb(TCG_MO_ALL | TCG_BAR_STRL);

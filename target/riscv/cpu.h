@@ -542,7 +542,7 @@ struct CPUArchState {
     /* HFI Registers */ 
     uint64_t hfi_status;   // CSR
     uint64_t hfi_exit_pc;  // internal Reg
-    uint32_t hfi_region_type;   // Type of region (0=none, 1=explicit, 2=implicit)
+    uint64_t hfi_region_type;   // Type of region (0=implicit, 1=explicit)
 
     // TODO: Change (for now assume only native sandboxing)
 
