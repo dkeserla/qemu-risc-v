@@ -45,4 +45,13 @@ void helper_hfi_set_region_permissions(CPURISCVState *env, uint64_t region_numbe
 
 void helper_hfi_print(CPURISCVState *env);
 
+// return true if the address is in an explicit data region region_number, false otherwise
+bool hfi_explicit_data_region_check(CPURISCVState *env, uint64_t region_number, uint64_t addr, bool is_load);
+
+// Check if the address is in an explicit data region region_number, trap if not
+void helper_hfi_explicit_data_region_check_load(CPURISCVState *env, uint64_t region_number, uint64_t addr);
+
+// Check if the address is in an explicit data region region_number, trap if not
+void helper_hfi_explicit_data_region_check_store(CPURISCVState *env, uint64_t region_number, uint64_t addr);
+
 #endif /* RISCV_HFI_HELPER_H */

@@ -153,3 +153,52 @@ void helper_hfi_print(CPURISCVState *env) {
     qemu_log_mask(LOG_UNIMP, "HFI: print, region_type=%llu, exit_handler=0x%016" PRIx64 "\n", 
         env->hfi_region_type,  env->hfi_exit_pc);
 }
+
+bool hfi_explicit_data_region_check(CPURISCVState *env, uint64_t region_number, uint64_t addr, bool is_load) {
+    if (env->hfi_status == 0 || env->hfi_region_type != 1) {
+        // hfi not on or not explicit region type
+        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, hfi not on or not explicit region type\nhfi_status=%d, hfi_region_type=%d\n", env->hfi_status, env->hfi_region_type);
+        return false;
+    }
+    if (region_number >= HFI_NUM_DATA_REGIONS || region_number < 0) {
+        // invalid region number
+        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, invalid region number\nregion_number=%d\n", region_number);
+        return false;
+    }
+    if (env->explicit_data_regions[region_number].enabled == false) {
+        // region not enabled
+        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, region not enabled\nregion_number=%d\n", region_number);
+        return false;
+    }
+    if (is_load && env->explicit_data_regions[region_number].perm_read == false) {
+        // read permission not set
+        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, read permission not set\nregion_number=%d\n", region_number);
+        return false;
+    }
+    if (!is_load && env->explicit_data_regions[region_number].perm_write == false) {
+        // write permission not set 
+        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, write permission not set\nregion_number=%d\n", region_number);
+        return false;
+    }
+    // TODO do smth with large regions?
+    HFIExplicitDataRegion *region = &env->explicit_data_regions[region_number];
+    if (addr < region->base || addr >= (region->base + region->bound)) {
+        // addr is not in region
+        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, addr not in region\naddr=%d, region_number=%d\n", addr, region_number);
+        
+        return false;
+    }
+    return true;
+}
+
+void helper_hfi_explicit_data_region_check_load(CPURISCVState *env, uint64_t region_number, uint64_t addr) {
+    if (!hfi_explicit_data_region_check(env, region_number, addr, true)) {
+        helper_hfi_trap_log(env, 0, 1);
+    }
+}
+
+void helper_hfi_explicit_data_region_check_store(CPURISCVState *env, uint64_t region_number, uint64_t addr) {
+    if (!hfi_explicit_data_region_check(env, region_number, addr, false)) {
+        helper_hfi_trap_log(env, 1, 1);
+    }
+}
