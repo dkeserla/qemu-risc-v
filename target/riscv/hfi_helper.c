@@ -58,11 +58,11 @@ void helper_hfi_set_region_size(CPURISCVState *env, uint64_t region_number,
 {
     /* Check for explicit data regions: 0 <= region_number < HFI_NUM_DATA_REGIONS */
     if (region_number < HFI_NUM_DATA_REGIONS) {
-        /* 
-         * TODO: Explicit data regions are not yet implemented.
-         */
-        qemu_log_mask(LOG_UNIMP, "HFI: Explicit data region %d not yet implemented\n", 
-                     region_number);
+        env->explicit_data_regions[region_number].base = base;
+        env->explicit_data_regions[region_number].bound = mask_or_bound;
+        qemu_log_mask(LOG_UNIMP, "HFI: Set explicit data region %d size: base=0x%016" PRIx64 
+                     ", mask=0x%016" PRIx64 "\n", 
+                     region_number, base, mask_or_bound);
     } 
     /* Check for implicit data regions: HFI_NUM_DATA_REGIONS <= region_number < 2*HFI_NUM_DATA_REGIONS */
     else if (region_number < 2 * HFI_NUM_DATA_REGIONS) {
@@ -102,12 +102,13 @@ void helper_hfi_set_region_permissions(CPURISCVState *env, uint64_t region_numbe
         bool read = (permission >> HFI_R1_READ_BIT) & 0x1;
         bool write = (permission >> HFI_R1_WRITE_BIT) & 0x1;
         bool is_large = (permission >> HFI_R1_IS_LARGE_BIT) & 0x1;
-        
-        /* 
-         * TODO: Explicit data regions are not yet implemented.
-         */
-        qemu_log_mask(LOG_UNIMP, "HFI: Explicit data region %d permissions not yet implemented\n"
-                     "[en:%d, r:%d, w:%d, large:%d]\n",
+
+        env->explicit_data_regions[region_number].perm_read = read;
+        env->explicit_data_regions[region_number].perm_write = write;
+        env->explicit_data_regions[region_number].enabled = enabled;
+        env->explicit_data_regions[region_number].is_large_region = is_large;
+        qemu_log_mask(LOG_UNIMP, "HFI: Set permissions for explicit data region %d: "
+                     "en:%d, r:%d, w:%d, large:%d\n",
                      region_number, enabled, read, write, is_large);
     } 
     /* Check for implicit data regions: HFI_NUM_DATA_REGIONS <= region_number < 2*HFI_NUM_DATA_REGIONS */

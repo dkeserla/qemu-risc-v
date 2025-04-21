@@ -222,6 +222,17 @@ typedef struct PMUFixedCtrState {
 #define HFI_R3_ENABLED_BIT   7
 #define HFI_R3_EXEC_BIT      6
 
+typedef struct HFIExplicitDataRegion {
+    uint64_t base;         // Base address of the region
+    uint64_t bound;        // Size of the region (in bytes)
+
+    bool perm_read;        // Read permission
+    bool perm_write;       // Write permission
+    bool enabled;          // Region enabled
+    bool is_large_region;  // true = large region (64K aligned), false = small region
+} HFIExplicitDataRegion;
+
+
 typedef struct HFIImplicitDataRegion {
     uint64_t prefix;     // base prefix
     uint64_t mask;       // lsb_mask 
@@ -546,8 +557,7 @@ struct CPUArchState {
 
     // TODO: Change (for now assume only native sandboxing)
 
-    // TODO: Implement explicit data regions
-
+    HFIExplicitDataRegion explicit_data_regions[HFI_NUM_DATA_REGIONS]; // r1
     HFIImplicitDataRegion implicit_data_regions[HFI_NUM_DATA_REGIONS]; // r2
     HFIImplicitCodeRegion implicit_code_regions[HFI_NUM_CODE_REGIONS]; // r3
 
