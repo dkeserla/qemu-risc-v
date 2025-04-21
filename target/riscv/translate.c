@@ -1226,10 +1226,83 @@ const RISCVDecoder decoder_table[] = {
 
 const size_t decoder_table_size = ARRAY_SIZE(decoder_table);
 
+static void gen_hfi_check_current_pc(DisasContext *ctx) {
+    TCGLabel *skip = gen_new_label();
+    TCGLabel *pass = gen_new_label();
+
+    TCGv hfi_status = tcg_temp_new();
+
+    tcg_gen_ld_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
+    tcg_gen_brcondi_tl(TCG_COND_NE, hfi_status, 1, skip);
+
+    TCGv pc = tcg_constant_tl(ctx->base.pc_next);
+    TCGv pc_end = tcg_constant_tl(ctx->base.pc_next + ctx->cur_insn_len - 1);
+
+    for (int i = 0; i < HFI_NUM_CODE_REGIONS; i++) {
+        TCGLabel *next = gen_new_label();
+
+        TCGv enabled = tcg_temp_new();
+        TCGv perm_exec = tcg_temp_new();
+        TCGv prefix = tcg_temp_new();
+        TCGv mask = tcg_temp_new();
+
+        tcg_gen_ld_tl(enabled, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].enabled));
+        tcg_gen_brcondi_tl(TCG_COND_EQ, enabled, 0, next);
+
+        tcg_gen_ld_tl(perm_exec, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].perm_exec));
+        tcg_gen_brcondi_tl(TCG_COND_EQ, perm_exec, 0, next);
+
+        tcg_gen_ld_tl(prefix, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].prefix));
+        tcg_gen_ld_tl(mask, tcg_env, offsetof(CPURISCVState, implicit_code_regions[i].mask));
+
+        // Log current PC check
+        TCGv_i64 pc_i64 = tcg_temp_new_i64();
+        TCGv_i64 prefix_i64 = tcg_temp_new_i64();
+        TCGv_i64 mask_i64 = tcg_temp_new_i64();
+        TCGv_i64 region_i64 = tcg_constant_i64(i);
+        TCGv_i64 matched_i64 = tcg_constant_i64(0);  // before match
+
+        tcg_gen_extu_tl_i64(pc_i64, pc);
+        tcg_gen_extu_tl_i64(prefix_i64, prefix);
+        tcg_gen_extu_tl_i64(mask_i64, mask);
+
+        gen_helper_hfi_log(tcg_env, pc_i64, prefix_i64, mask_i64,
+                   region_i64, matched_i64, tcg_constant_i64(2));
+
+        // Perform masking and check
+        TCGv pc_masked = tcg_temp_new();
+        TCGv end_masked = tcg_temp_new();
+
+        tcg_gen_and_tl(pc_masked, pc, mask);
+        tcg_gen_and_tl(end_masked, pc_end, mask);
+
+        tcg_gen_brcond_tl(TCG_COND_NE, pc_masked, prefix, next);
+        tcg_gen_brcond_tl(TCG_COND_EQ, end_masked, prefix, pass);
+
+        gen_set_label(next);
+    }
+
+    gen_helper_hfi_trap_log(tcg_env,
+        tcg_constant_i64(0),             // always read for PC fetch
+        tcg_constant_i64(2));            // region_type = 2 (internal code)
+    
+    gen_helper_raise_exception(tcg_env, tcg_constant_i32(RISCV_EXCP_LOAD_ACCESS_FAULT));
+
+    gen_set_label(pass);
+    gen_set_label(skip);
+}
+
+
+
 static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
 {
     ctx->virt_inst_excp = false;
     ctx->cur_insn_len = insn_len(opcode);
+
+    // check hfi code here
+    // if (env->hfi_status) // adding this check can cause problems with cached TBs
+    gen_hfi_check_current_pc(ctx);
+
     /* Check for compressed insn */
     if (ctx->cur_insn_len == 2) {
         ctx->opcode = opcode;

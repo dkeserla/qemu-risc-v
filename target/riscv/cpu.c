@@ -1128,6 +1128,21 @@ static void riscv_cpu_reset_hold(Object *obj, ResetType type)
     set_float_default_nan_pattern(0b01000000, &env->fp_status);
     env->vill = true;
 
+    for (int i = 0; i < HFI_NUM_DATA_REGIONS; i++) {
+        env->implicit_data_regions[i].prefix = 0;
+        env->implicit_data_regions[i].mask = 0xFFFFFFFFFFFFULL;  // 48-bit don't-care
+        env->implicit_data_regions[i].perm_read = false;
+        env->implicit_data_regions[i].perm_write = false;
+        env->implicit_data_regions[i].enabled = false;
+    }
+
+    for (int i = 0; i < HFI_NUM_CODE_REGIONS; i++) {
+        env->implicit_code_regions[i].prefix = 0;
+        env->implicit_code_regions[i].mask = 0xFFFFFFFFFFFFULL;  // 48-bit don't-care
+        env->implicit_code_regions[i].perm_exec = false;
+        env->implicit_code_regions[i].enabled = false;
+    }
+    
 #ifndef CONFIG_USER_ONLY
     if (cpu->cfg.debug) {
         riscv_trigger_reset_hold(env);

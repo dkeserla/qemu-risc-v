@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+// #include "tcg/tcg-temp-internal.h"
 
 static bool trans_illegal(DisasContext *ctx, arg_empty *a)
 {
@@ -360,10 +361,91 @@ static bool trans_bgeu(DisasContext *ctx, arg_bgeu *a)
     return gen_branch(ctx, a, TCG_COND_GEU);
 }
 
+// access type 0 is read, access type 1 is write
+// HFI implicit data region check
+static void gen_hfi_check_data_address(DisasContext *ctx, TCGv addr, int access_type){
+    TCGLabel *skip = gen_new_label();
+    TCGLabel *pass = gen_new_label();
+    TCGv tmp = tcg_temp_new();
+    TCGv hfi_status = tcg_temp_new();
+    TCGv hfi_region_type = tcg_temp_new();
+
+    tcg_gen_ld_tl(hfi_status, tcg_env, offsetof(CPURISCVState, hfi_status));
+    tcg_gen_brcondi_tl(TCG_COND_NE, hfi_status, 1, skip);
+
+    // if (env->hfi_region_type != 0) goto skip
+    tcg_gen_ld_tl(hfi_region_type, tcg_env, offsetof(CPURISCVState, hfi_region_type));
+    // gen_helper_hfi_print(tcg_env);
+    tcg_gen_brcondi_tl(TCG_COND_NE, hfi_region_type, 0, skip); // check region is not implicit (0)
+
+    for (int i = 0; i < HFI_NUM_DATA_REGIONS; i++) {
+        TCGLabel *next = gen_new_label();
+
+        TCGv enabled = tcg_temp_new();
+        TCGv prefix = tcg_temp_new();
+        TCGv mask = tcg_temp_new();
+        TCGv perm = tcg_temp_new();
+        
+        // if the enabled bit in the region is 0 --> skip
+        tcg_gen_ld_tl(enabled, tcg_env, offsetof(CPURISCVState, implicit_data_regions[i].enabled));
+        tcg_gen_brcondi_tl(TCG_COND_EQ, enabled, 0, next);
+
+        tcg_gen_ld_tl(prefix, tcg_env, offsetof(CPURISCVState, implicit_data_regions[i].prefix));
+        tcg_gen_ld_tl(mask, tcg_env, offsetof(CPURISCVState, implicit_data_regions[i].mask));
+
+        // permission: perm_read at offset +0, perm_write at offset +1
+        size_t perm_off = offsetof(CPURISCVState, implicit_data_regions[i].perm_read) +
+                          (access_type ? 1 : 0);
+        tcg_gen_ld8u_tl(perm, tcg_env, perm_off); // TODO might have issues here with 1 bit ?
+        tcg_gen_brcondi_tl(TCG_COND_EQ, perm, 0, next);  // no permission → skip
+
+        tcg_gen_and_tl(tmp, addr, mask);
+
+        TCGv_i64 addr_i64 = tcg_temp_new_i64();
+        TCGv_i64 prefix_i64 = tcg_temp_new_i64();
+        TCGv_i64 mask_i64 = tcg_temp_new_i64();
+        TCGv_i64 region_i64 = tcg_constant_i64(i);
+        TCGv_i64 matched_i64 = tcg_constant_i64(0);  // false by default
+
+        tcg_gen_extu_tl_i64(addr_i64, addr);
+        tcg_gen_extu_tl_i64(prefix_i64, prefix);
+        tcg_gen_extu_tl_i64(mask_i64, mask);
+
+        gen_helper_hfi_log(tcg_env, addr_i64, prefix_i64, mask_i64,
+            region_i64, matched_i64, tcg_constant_i64(1));
+
+        tcg_gen_brcond_tl(TCG_COND_EQ, tmp, prefix, pass);
+
+        gen_set_label(next);
+        // free'd at end of TB since TCGv?
+        // tcg_temp_free(enabled);
+        // tcg_temp_free(prefix);
+        // tcg_temp_free(mask);
+        // tcg_temp_free(perm);
+
+        
+    }
+
+    // trap: no region matched
+    gen_helper_hfi_trap_log(tcg_env,
+        tcg_constant_i64(access_type),   // 0 = read, 1 = write
+        tcg_constant_i64(1));            // region_type = 1 (data)
+    
+    gen_helper_raise_exception(tcg_env, tcg_constant_i32(RISCV_EXCP_LOAD_ACCESS_FAULT));
+
+    gen_set_label(pass);
+    gen_set_label(skip);
+    // tcg_temp_free(hfi_status);
+    // tcg_temp_free(tmp);
+}
+
+
 static bool gen_load_tl(DisasContext *ctx, arg_lb *a, MemOp memop)
 {
     TCGv dest = dest_gpr(ctx, a->rd);
     TCGv addr = get_address(ctx, a->rs1, a->imm);
+
+    gen_hfi_check_data_address(ctx, addr, 0); // check read access
 
     tcg_gen_qemu_ld_tl(dest, addr, ctx->mem_idx, memop);
     gen_set_gpr(ctx, a->rd, dest);
@@ -472,6 +554,9 @@ static bool gen_store_tl(DisasContext *ctx, arg_sb *a, MemOp memop)
 {
     TCGv addr = get_address(ctx, a->rs1, a->imm);
     TCGv data = get_gpr(ctx, a->rs2, EXT_NONE);
+    
+    
+    gen_hfi_check_data_address(ctx, addr, 1); // check write access
 
     if (ctx->ztso) {
         tcg_gen_mb(TCG_MO_ALL | TCG_BAR_STRL);
