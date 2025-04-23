@@ -53,77 +53,136 @@ static bool trans_hfi_set_region_permissions(DisasContext *ctx, arg_hfi_set_regi
 
 static bool trans_hlb0(DisasContext *ctx, arg_hlb0 *arg)
 {
-    TCGv addr = get_address(ctx, arg->rs1, arg->imm); // TODO check if this is right
+    TCGv addr = get_address(ctx, arg->rs1, arg->imm);
     gen_helper_hfi_explicit_data_region_check_load(tcg_env, 0, addr);
+    // Byte access - no need to check end (same as beginning)
     return trans_lb(ctx, arg);
 }
 
 static bool trans_hlh0(DisasContext *ctx, arg_hlh0 *arg)
 {
-    TCGv addr = get_address(ctx, arg->rs1, arg->imm); // TODO check if this is right
+    TCGv addr = get_address(ctx, arg->rs1, arg->imm);
+    TCGv end_addr = tcg_temp_new();
+    
     gen_helper_hfi_explicit_data_region_check_load(tcg_env, 0, addr);
+    
+    // Check end address (addr + 1) for halfword
+    tcg_gen_addi_tl(end_addr, addr, 1);
+    gen_helper_hfi_explicit_data_region_check_load(tcg_env, 0, end_addr);
+    
     return trans_lh(ctx, arg);
 }
 
 static bool trans_hlw0(DisasContext *ctx, arg_hlw0 *arg)
 {
-    TCGv addr = get_address(ctx, arg->rs1, arg->imm); // TODO check if this is right
+    TCGv addr = get_address(ctx, arg->rs1, arg->imm);
+    TCGv end_addr = tcg_temp_new();
+    
     gen_helper_hfi_explicit_data_region_check_load(tcg_env, 0, addr);
+    
+    // Check end address (addr + 3) for word
+    tcg_gen_addi_tl(end_addr, addr, 3);
+    gen_helper_hfi_explicit_data_region_check_load(tcg_env, 0, end_addr);
+    
     return trans_lw(ctx, arg);
 }
 
 static bool trans_hlbu0(DisasContext *ctx, arg_hlbu0 *arg)
 {
-    TCGv addr = get_address(ctx, arg->rs1, arg->imm); // TODO check if this is right
+    TCGv addr = get_address(ctx, arg->rs1, arg->imm);
     gen_helper_hfi_explicit_data_region_check_load(tcg_env, 0, addr);
+    // Byte access - no need to check end (same as beginning)
     return trans_lbu(ctx, arg);
 }
 
 static bool trans_hlhu0(DisasContext *ctx, arg_hlhu0 *arg)
 {
-    TCGv addr = get_address(ctx, arg->rs1, arg->imm); // TODO check if this is right
+    TCGv addr = get_address(ctx, arg->rs1, arg->imm);
+    TCGv end_addr = tcg_temp_new();
+    
     gen_helper_hfi_explicit_data_region_check_load(tcg_env, 0, addr);
+    
+    // Check end address (addr + 1) for halfword
+    tcg_gen_addi_tl(end_addr, addr, 1);
+    gen_helper_hfi_explicit_data_region_check_load(tcg_env, 0, end_addr);
+    
     return trans_lhu(ctx, arg);
 }
 
 static bool trans_hlwu0(DisasContext *ctx, arg_hlwu0 *arg)
 {
-    TCGv addr = get_address(ctx, arg->rs1, arg->imm); // TODO check if this is right
+    TCGv addr = get_address(ctx, arg->rs1, arg->imm);
+    TCGv end_addr = tcg_temp_new();
+    
     gen_helper_hfi_explicit_data_region_check_load(tcg_env, 0, addr);
+    
+    // Check end address (addr + 3) for word
+    tcg_gen_addi_tl(end_addr, addr, 3);
+    gen_helper_hfi_explicit_data_region_check_load(tcg_env, 0, end_addr);
+    
     return trans_lwu(ctx, arg);
 }
 
 static bool trans_hld0(DisasContext *ctx, arg_hld0 *arg)
 {
-    TCGv addr = get_address(ctx, arg->rs1, arg->imm); // TODO check if this is right
+    TCGv addr = get_address(ctx, arg->rs1, arg->imm);
+    TCGv end_addr = tcg_temp_new();
+    
     gen_helper_hfi_explicit_data_region_check_load(tcg_env, 0, addr);
+    
+    // Check end address (addr + 7) for doubleword
+    tcg_gen_addi_tl(end_addr, addr, 7);
+    gen_helper_hfi_explicit_data_region_check_load(tcg_env, 0, end_addr);
+    
     return trans_ld(ctx, arg);
 }
 
 static bool trans_hsb0(DisasContext *ctx, arg_hsb0 *arg)
 {
-    TCGv addr = get_address(ctx, arg->rs1, arg->imm); // TODO check if this is right
+    TCGv addr = get_address(ctx, arg->rs1, arg->imm);
     gen_helper_hfi_explicit_data_region_check_store(tcg_env, 0, addr);
+    // Byte access - no need to check end (same as beginning)
     return trans_sb(ctx, arg);
 }
 
 static bool trans_hsh0(DisasContext *ctx, arg_hsh0 *arg)
 {
-    TCGv addr = get_address(ctx, arg->rs1, arg->imm); // TODO check if this is right
+    TCGv addr = get_address(ctx, arg->rs1, arg->imm);
+    TCGv end_addr = tcg_temp_new();
+    
     gen_helper_hfi_explicit_data_region_check_store(tcg_env, 0, addr);
+    
+    // Check end address (addr + 1) for halfword
+    tcg_gen_addi_tl(end_addr, addr, 1);
+    gen_helper_hfi_explicit_data_region_check_store(tcg_env, 0, end_addr);
+    
     return trans_sh(ctx, arg);
 }
 
 static bool trans_hsw0(DisasContext *ctx, arg_hsw0 *arg)
 {
-    TCGv addr = get_address(ctx, arg->rs1, arg->imm); // TODO check if this is right
+    TCGv addr = get_address(ctx, arg->rs1, arg->imm);
+    TCGv end_addr = tcg_temp_new();
+    
     gen_helper_hfi_explicit_data_region_check_store(tcg_env, 0, addr);
+    
+    // Check end address (addr + 3) for word
+    tcg_gen_addi_tl(end_addr, addr, 3);
+    gen_helper_hfi_explicit_data_region_check_store(tcg_env, 0, end_addr);
+    
     return trans_sw(ctx, arg);
 }
 
 static bool trans_hsd0(DisasContext *ctx, arg_hsd0 *arg)
 {
-    TCGv addr = get_address(ctx, arg->rs1, arg->imm); // TODO check if this is right
+    TCGv addr = get_address(ctx, arg->rs1, arg->imm);
+    TCGv end_addr = tcg_temp_new();
+    
     gen_helper_hfi_explicit_data_region_check_store(tcg_env, 0, addr);
+    
+    // Check end address (addr + 7) for doubleword
+    tcg_gen_addi_tl(end_addr, addr, 7);
+    gen_helper_hfi_explicit_data_region_check_store(tcg_env, 0, end_addr);
+    
     return trans_sd(ctx, arg);
 }
