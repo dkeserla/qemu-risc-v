@@ -155,6 +155,7 @@ void helper_hfi_print(CPURISCVState *env) {
 }
 
 bool hfi_explicit_data_region_check(CPURISCVState *env, uint64_t region_number, uint64_t addr, bool is_load) {
+    qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, region_number=%lu, addr=0x%lx, is_load=%d\n", region_number, addr, is_load);
     if (env->hfi_status == 0 || env->hfi_region_type != 1) {
         // hfi not on or not explicit region type
         qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, hfi not on or not explicit region type\nhfi_status=%d, hfi_region_type=%d\n", env->hfi_status, env->hfi_region_type);
@@ -162,43 +163,50 @@ bool hfi_explicit_data_region_check(CPURISCVState *env, uint64_t region_number, 
     }
     if (region_number >= HFI_NUM_DATA_REGIONS || region_number < 0) {
         // invalid region number
-        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, invalid region number\nregion_number=%d\n", region_number);
+        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, invalid region number\nregion_number=%lu\n", region_number);
         return false;
     }
     if (env->explicit_data_regions[region_number].enabled == false) {
         // region not enabled
-        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, region not enabled\nregion_number=%d\n", region_number);
+        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, region not enabled\nregion_number=%lu\n", region_number);
         return false;
     }
     if (is_load && env->explicit_data_regions[region_number].perm_read == false) {
         // read permission not set
-        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, read permission not set\nregion_number=%d\n", region_number);
+        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, read permission not set\nregion_number=%lu\n", region_number);
         return false;
     }
     if (!is_load && env->explicit_data_regions[region_number].perm_write == false) {
         // write permission not set 
-        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, write permission not set\nregion_number=%d\n", region_number);
+        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, write permission not set\nregion_number=%lu\n", region_number);
         return false;
     }
     // TODO do smth with large regions?
     HFIExplicitDataRegion *region = &env->explicit_data_regions[region_number];
     if (addr < region->base || addr >= (region->base + region->bound)) {
         // addr is not in region
-        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, addr not in region\naddr=%d, region_number=%d\n", addr, region_number);
+        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, addr not in region\naddr=0x%lx, region_number=%lu\n", addr, region_number);
         
         return false;
     }
+    qemu_log_mask(LOG_UNIMP, "HFI: RETURN TRUE explicit data region check, addr=0x%lx, region_number=%lu\n", addr, region_number);
     return true;
 }
 
 void helper_hfi_explicit_data_region_check_load(CPURISCVState *env, uint64_t region_number, uint64_t addr) {
+    qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, load, region_number=%lu, addr=0x%lx\n", region_number, addr);
     if (!hfi_explicit_data_region_check(env, region_number, addr, true)) {
+        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, load, addr not in region\naddr=0x%lx, region_number=%lu\n", addr, region_number);
         helper_hfi_trap_log(env, 0, 1);
     }
 }
 
 void helper_hfi_explicit_data_region_check_store(CPURISCVState *env, uint64_t region_number, uint64_t addr) {
+    qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, store, region_number=%lu, addr=0x%lx\n", region_number, addr);
     if (!hfi_explicit_data_region_check(env, region_number, addr, false)) {
+        qemu_log_mask(LOG_UNIMP, "HFI: explicit data region check, store, addr not in region\naddr=0x%lx, region_number=%lu\n", addr, region_number);
         helper_hfi_trap_log(env, 1, 1);
     }
 }
+
+// TODO remove extra logs in explicit_data_region_checks
